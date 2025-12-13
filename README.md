@@ -59,12 +59,16 @@ And now we are ready to launch.
 rag_application.launch(server_name="127.0.0.1", server_port= 7890)
 ```
 
+It should look like this.
+
+<img width="1518" height="452" alt="image" src="https://github.com/user-attachments/assets/943a66a0-2f31-41b2-8167-3362dca887c8" />
+
 # Follow up
 
 There sereval things can be improved that I would like to address.
 
 LLM configuration: I don't suggest to tune the ```temperature```, but one may change ```top_k``` and ```top_k``` and so on.
 
-Multiple input: Extend from one pdf is definitely worth trying. It can be various file type, or many pdfs, or both. However, this requires complete update on the code syntax.
+Multiple input: Extend from one pdf to more is definitely worth trying. It can be various file type, or many pdfs, or both. However, this requires complete update on the code syntax.
 
-Refine QA quality: One can further improve the reponse from LLM by creating a prompt template ```custom_prompt = PromptTemplate.from_template(custom_prompt_template)```, and then pass to the ```chain_type_kwargs={"prompt": custom_prompt}``` inside the argument of ```RetrievalQA.from_chain_type```. This is helpful because this fits better what a user wants, such as not to answer something not in the document.
+Refine QA quality: One can further improve the reponse from LLM by creating a prompt template ```custom_prompt = PromptTemplate.from_template(custom_prompt_template)```, and then pass to the ```chain_type_kwargs={"prompt": custom_prompt}``` inside the argument of ```RetrievalQA.from_chain_type```. This is helpful because this fits better what a user wants by giving a better context, such as not to answer something not in the document.

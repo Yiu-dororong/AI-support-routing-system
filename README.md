@@ -74,3 +74,23 @@ LLM configuration: I don't suggest to tune the ```temperature```, but one may ch
 Multiple input: Extend from one pdf to more is definitely worth trying. It can be various file type, or many pdfs, or both. However, this requires complete update on the code syntax.
 
 Refine QA quality: One can further improve the reponse from LLM by creating a prompt template ```custom_prompt = PromptTemplate.from_template(custom_prompt_template)```, and then pass to the ```chain_type_kwargs={"prompt": custom_prompt}``` inside the argument of ```RetrievalQA.from_chain_type```. This is helpful because this fits better what a user wants by giving a better context, such as not to answer something not in the document.
+
+# Second Visit
+
+As my study moved on, I studied an advanced version of it, [DocChat](https://github.com/ibm-developer-skills-network/zzpwx-docchat) which is an agentic AI RAG system.
+
+It is more comprehensive and solve one of my concern stated before, ```PyPDFLoader``` cannot read images, but this agent used [docling](https://github.com/docling-project/docling) which utilizes OCR and is able to read images.
+
+The architecture has a wider converage on error-handling. It first query the LLM to see if the question is related to the document uploaded. If the answer is no, the process ends here.
+
+Next, the query enters to the research agent, which serves as a standard RAG system to find relevant information. When it completes, it passes to the verification agent to check whether the extracted information is relevant and reasonable to answer the query. If not, it will return to the research agent to find again.
+
+After the research is completed, all the information is passed to LLM to wrap the response in a more comfortable format back to the user.
+
+## Evaluation
+
+With more agents on confirming the relevance, the RAG system has a significant improvement on the accuracy of responses. Moreover, the adoption of docling has also greatly improved the accessibility.
+
+All in all, RAG in this system is just about memory management. It allows wider context for the LLM to capture.
+
+Although the task assigned to the agent is just find the relevant answer, but this can be extended to other areas. For example, the same workflow can be used in customer services. For further usage, by binding tools or MCP to the agent, this can enable agent to do more. For instance, an agent can bind the Gmail tool for reading email and then drafting email to respond customer, while abiding the internal format that can be saved in the state. Though, human-in-loop such as human checking is equally important when the degree of automation rises. 

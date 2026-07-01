@@ -1,0 +1,85 @@
+{
+  "order_status": {
+    "description": "Checking the status, shipment, tracking, or delivery state of an existing order, or modifying/canceling a recently placed order.",
+    "examples": [
+      "Where is my order?",
+      "Has my package shipped yet?",
+      "Can I get the tracking number for my order?",
+      "My order hasn't arrived, where is it?",
+      "Check the status of order number 12345",
+      "Is my delivery delayed?",
+      "Can I modify my shipping address 30 minutes after ordering?",
+      "How do I cancel my order before it ships?",
+      "Is it too late to change my order?",
+      "Can I cancel or modify my order after placement?"
+    ]
+  },
+  "product_inquiry": {
+    "description": "Questions about product details, specifications, refurbished grades, battery health, hardware warranty coverage, or compatibility.",
+    "examples": [
+      "Is this refurbished phone Grade A or B?",
+      "What is the battery health of Grade B items?",
+      "What does the 12-month manufacturer warranty cover?",
+      "Does the standard warranty cover water damage?",
+      "Is this charger compatible with VibePhone 13 Pro?",
+      "What accessories are included in Grade C refurbished items?",
+      "I want a refurbished device with at least 90% battery health and original box, what grade should I get?",
+      "Can you compare the specifications of Grade A and Grade B refurbished electronics?",
+      "Does the warranty cover drops and physical damage?"
+    ]
+  },
+  "returns_refunds": {
+    "description": "Questions regarding return policies, restocking fees, return windows, starting a return, or checking refund status.",
+    "examples": [
+      "How do I return an item I bought?",
+      "When will I get my refund?",
+      "What is your return policy?",
+      "Can I exchange this for a different size?",
+      "Where do I send my return package?",
+      "What is the restocking fee for returned open-box electronics?",
+      "Do I have to pay a restocking fee if the item is defective?",
+      "How long do I have to return an item?",
+      "I want to return a laptop and some accessories, how much restocking fees will I have to pay?",
+      "How is the restocking fee calculated for open box items?"
+    ]
+  },
+  "payment_billing": {
+    "description": "Questions about payment methods, billing statements, loyalty points redemption, gift card terms, and store credit expiration.",
+    "examples": [
+      "Why was I charged twice for my purchase?",
+      "What payment methods do you accept?",
+      "Can I redeem my loyalty points for cash?",
+      "Do my loyalty points expire?",
+      "How many loyalty points do I earn per dollar spent?",
+      "Can I use a gift card and store credit together?",
+      "Do gift cards expire?",
+      "How long does promotional store credit last?",
+      "My card was declined, what should I do?"
+    ]
+  },
+  "account_login": {
+    "description": "Issues with logging in, creating an account, updating profile security, setting up multi-factor authentication (MFA), or password resets.",
+    "examples": [
+      "I can't log in to my account.",
+      "How do I reset my password?",
+      "How do I update my shipping address in my profile?",
+      "How do I set up multi-factor authentication?",
+      "Can I enable MFA for my account?",
+      "I forgot my password, please help."
+    ]
+  },
+  "shipping_delivery": {
+    "description": "General questions about shipping options, delivery times, weight tiers, international shipping, customs duties, or shipping fees.",
+    "examples": [
+      "Do you ship internationally?",
+      "How much does shipping cost?",
+      "How long does standard shipping take?",
+      "Can I get overnight shipping?",
+      "How much does express shipping cost for a 5 lb package?",
+      "What is the standard shipping rate for Tier 1?",
+      "Do you deliver to Canada or the UK?",
+      "Are there custom duties for orders sent to the European Union?",
+      "I am ordering a 15 lb package and need it tomorrow, how much will overnight shipping cost?"
+    ]
+  }
+}

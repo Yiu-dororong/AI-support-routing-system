@@ -1,0 +1,4 @@
+[server]
+# Disable Streamlit file watching completely to prevent it from dynamically
+# scanning lazy-loaded attributes of imported packages like transformers
+fileWatcherType = "none"

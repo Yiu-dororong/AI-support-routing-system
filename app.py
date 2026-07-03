@@ -216,8 +216,8 @@ if selected_preset != st.session_state.last_selected_preset:
         st.session_state.user_query_input = selected_preset
 
 # Main Title & Subtitle
-st.title("🤖 E-Commerce AI Support Router")
-st.markdown("### Intent-Bounded Query Routing & Graceful Degradation Engine")
+st.title("🤖 AI Support Routing System")
+st.markdown("### E-commerce customer support assistant")
 
 
 # Initialize router shortcut
@@ -598,38 +598,9 @@ with tab_chat:
                 if answer_text.strip().startswith("⚠️"):
                     st.warning(answer_text)
                 else:
-                    # Convert markdown to HTML using markdown-it-py
-                    # (with table extension enabled)
-                    from markdown_it import MarkdownIt
-                    md = MarkdownIt().enable("table")
-                    html_content = md.render(answer_text)
-
-                    card_html = (
-                        f'<div class="synthesis-card">\n'
-                        f'    <span style="color: #F57F17; font-weight: bold;\n'
-                        f'                 font-size: 1.15rem; display: block;\n'
-                        f'                 margin-bottom: 8px;">\n'
-                        f'        ✨ AI Summary\n'
-                        f'    </span>\n'
-                        f'    <div style="line-height: 1.5; font-size: 1rem;">\n'
-                        f'        {html_content}\n'
-                        f'    </div>\n'
-                        f'</div>'
-                    )
-                    card_html = f"""
-                                <div class="synthesis-card">
-                                    <span style="color: #F57F17;
-                                                font-weight: bold;
-                                                font-size: 1.15rem; display:
-                                                block; margin-bottom: 8px;">
-                                        ✨ AI Summary
-                                    </span>
-                                    <div style="line-height: 1.5; font-size: 1rem;">
-                                        {html_content}
-                                    </div>
-                                </div>
-                                """
-                    st.markdown(card_html, unsafe_allow_html=True)
+                    st.markdown("### ✨ AI Summary")
+                    with st.container(border=True):
+                        st.markdown(answer_text)
             else:
                 st.markdown(trace["response"]["text"])
 

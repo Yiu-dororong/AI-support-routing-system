@@ -3,10 +3,15 @@
 **Routing system for e-commerce customer support that combines deterministic routing, bounded retrieval, and local LLM inference to minimise unnecessary generation while preserving reliable support workflows.**
 
 ---
-
 Large language models are often treated as the entry point for AI assistants. This project explores the opposite design philosophy. Rather than routing every customer query directly through an LLM, the system progressively escalates requests through deterministic semantic filters, curated retrieval, and local generation only when each cheaper alternative has been exhausted.
 
 The result is an orchestration pipeline designed around predictable behaviour, bounded inference, and explicit uncertainty—prioritising engineering control over maximal model usage.
+
+<p align="center">
+    <kbd>
+        <img width="1516" height="1086" alt="frontend_sample" src="https://github.com/user-attachments/assets/fa8d541b-a6be-4f87-8180-769aaabf61a2" />
+    </kbd>
+</p>
 
 ---
 

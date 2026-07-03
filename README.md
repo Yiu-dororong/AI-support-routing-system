@@ -106,6 +106,27 @@ Because `llama-server` employs lazy loading and CPU schema tree compilation on t
 
 ---
 
+### 📈 Benchmarks & Trade-offs 
+
+The progressive triage architecture ensures that queries are resolved at the lowest possible computational cost and latency. Based on actual local CPU inference profiles, the expected runtimes for each path are:
+
+| Outcome Path | Trigger Condition | Active Components | LLM Generation | Expected Runtime |
+| :--- | :--- | :--- | :---: | :--- |
+| **Out of Scope** | Semantic Scope similarity < **Scope Threshold** | Scope Filter | Bypassed | < 20 ms |
+| **Direct FAQ Match** | FAQ similarity >= **FAQ Match Threshold** | Scope Filter + FAQ Layer | Bypassed | < 20 ms |
+| **Planner Direct (Refuse/Clarify/Escalate)** | Planner path `refuse`, `clarify`, or `escalate` | Scope Filter + FAQ + Planner | 1 Pass (reasoning=OFF) | ~4.0 s - 5.0 s (cached) |
+| **RAG Direct** | Planner path `rag` + Retrieval similarity >= **Retrieval Threshold** | Scope + FAQ + Planner + ChromaDB | 1 Pass (reasoning=OFF) | ~4.0 s - 5.0 s (cached) |
+| **RAG LLM Synthesis** | Planner path `rag_llm` + Retrieval similarity >= **Retrieval Threshold** | Scope + FAQ + Planner + ChromaDB + LLM | 2 Passes (reasoning=ON) | ~13.0 s - 15.0 s (cached) |
+
+> [!NOTE]
+> **Hardware Context & Latency Bounds**: These latency profiles reflect a local CPU deployment of the Gemma-4 2B model. Runtimes can be reduced to sub-second or sub-100ms speeds by serving the model on a dedicated GPU or utilizing hosted API endpoints.
+
+**Cost & Latency Trade-offs**:
+* **Cost Reduction**: Out-of-scope and FAQ requests are resolved in under 20ms at zero LLM token cost, and by routing simple lookups to `RAG Direct` (LLM bypassed during document presentation), the system avoids secondary synthesis costs.
+* **Architectural Assumption**: Adding the Planner layer introduces a **double-pass LLM pipeline** for synthesis queries (`Planner` pass + `Synthesis` pass), which doubles the token cost and generation latency. This pattern is **highly effective only when the deterministic FAQ database is comprehensive enough to capture most queries** (bypassing the LLM entirely). Otherwise, if most queries fall through to the LLM, the Planner adds unnecessary overhead and latency compared to a single-pass RAG pipeline.
+
+---
+
 ## 🛠️ Tech Stack 
 
 The system is built on a local-first Python stack:
@@ -133,9 +154,8 @@ The system is built on a local-first Python stack:
    .venv\Scripts\Activate.ps1
    pip install -r requirements.txt
    ```
-2. **Local Binaries & Config**:
-   * Download and extract [llama-server](https://github.com/ggerganov/llama.cpp/releases/tag/b9840) in `llama_bin/`. <br/> *Note: The Gemma LLM weights are automatically downloaded from Hugging Face Hub and saved to the local `llm/` directory on the first execution.*
-   * *(Optional)* ```copy .env.example .env``` to configure Langfuse API credentials.
+2. **Config**:
+   * *(Optional)* ```copy .env.example .env``` to configure Langfuse API & huggingface credentials. <br/> *Note: The llama.cpp and Gemma LLM weights are automatically downloaded from Hugging Face Hub and saved to the local `llm/` directory on the first execution.*
 3. **Execution**:
    * **Test**: `python -m pytest`
    * **Run**: `streamlit run app.py` (starts the local backend `llama-server` automatically)
@@ -153,7 +173,7 @@ router/
 │   ├── Ecommerce_FAQ_Chatbot_dataset.json  # Curated e-commerce FAQ dataset
 │   └── documents/                          # VoltVibe knowledge base PDF documents
 ├── llama_bin/
-│   └── llama-server.exe                    # Local llama.cpp runner binary
+│   └── llama-server.exe                    # Local llama.cpp runner binary (Generated automatically on first run)
 ├── llm/
 │   └── gemma-4-E2B-it-UD-Q4_K_XL.gguf      # Automatically downloaded model weights
 ├── .env.example                            # Template environment configuration file

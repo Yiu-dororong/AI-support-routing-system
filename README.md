@@ -123,7 +123,7 @@ The progressive triage architecture ensures that queries are resolved at the low
 
 **Cost & Latency Trade-offs**:
 * **Cost Reduction**: Out-of-scope and FAQ requests are resolved in under 20ms at zero LLM token cost, and by routing simple lookups to `RAG Direct` (LLM bypassed during document presentation), the system avoids secondary synthesis costs.
-* **Architectural Assumption**: Adding the Planner layer introduces a **double-pass LLM pipeline** for synthesis queries (`Planner` pass + `Synthesis` pass), which doubles the token cost and generation latency. This pattern is **highly effective only when the deterministic FAQ database is comprehensive enough to capture most queries** (bypassing the LLM entirely). Otherwise, if most queries fall through to the LLM, the Planner adds unnecessary overhead and latency compared to a single-pass RAG pipeline.
+* **Architectural Trade-off**: Introducing a Planner creates a two-stage inference pipeline for synthesis requests (Planner → Response Generation), increasing both latency and token consumption compared to a conventional single-pass RAG system. **This design is justified only when a substantial proportion of requests can be resolved through deterministic paths**—such as FAQ lookup, direct retrieval, or policy routing—allowing the LLM to be bypassed entirely. In domains where most queries ultimately require generation, the Planner becomes additional overhead without proportional benefit, making a simpler single-pass RAG architecture the more efficient choice.
 
 ---
 
@@ -148,17 +148,18 @@ The system is built on a local-first Python stack:
 
 1. **Clone & Setup Environment**:
    ```bash
-   git clone https://github.com/Yiu-dororong/RAG-chatbot.git
-   cd RAG-chatbot
+   git clone https://github.com/Yiu-dororong/AI-support-routing-system.git
+   cd AI-support-routing-system
    python -m venv .venv
    .venv\Scripts\Activate.ps1
    pip install -r requirements.txt
+   cp .env.example .env
    ```
 2. **Config**:
-   * *(Optional)* ```copy .env.example .env``` to configure Langfuse API & huggingface credentials. <br/> *Note: The llama.cpp and Gemma LLM weights are automatically downloaded from Hugging Face Hub and saved to the local `llm/` directory on the first execution.*
+   * *(Optional)* Configure Langfuse API & huggingface credentials in `.env`. <br/> *Note: The llama.cpp and Gemma LLM weights are automatically downloaded from Hugging Face Hub and saved to the local `llm/` directory on the first execution.*
 3. **Execution**:
    * **Test**: `python -m pytest`
-   * **Run**: `streamlit run app.py` (starts the local backend `llama-server` automatically)
+   * **Run**: `streamlit run app.py` (starts the local backend `llama-server` automatically) <br/> *Note: This will take some time for the initial setup.*
 
 <details>
 <summary><b>File Structure</b></summary>

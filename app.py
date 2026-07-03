@@ -616,6 +616,19 @@ with tab_chat:
                         f'    </div>\n'
                         f'</div>'
                     )
+                    card_html = f"""
+                                <div class="synthesis-card">
+                                    <span style="color: #F57F17;
+                                                font-weight: bold;
+                                                font-size: 1.15rem; display:
+                                                block; margin-bottom: 8px;">
+                                        ✨ AI Summary
+                                    </span>
+                                    <div style="line-height: 1.5; font-size: 1rem;">
+                                        {html_content}
+                                    </div>
+                                </div>
+                                """
                     st.markdown(card_html, unsafe_allow_html=True)
             else:
                 st.markdown(trace["response"]["text"])

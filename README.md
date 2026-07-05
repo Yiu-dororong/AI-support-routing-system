@@ -1,6 +1,6 @@
 # AI Support Routing System 
 
-**Routing system for e-commerce customer support that combines deterministic routing, bounded retrieval, and local LLM inference to minimise unnecessary generation while preserving reliable support workflows.**
+**Routing system for e-commerce customer support that combines deterministic routing, bounded retrieval, and local LLM inference to minimise unnecessary generation.**
 
 ---
 Large language models are often treated as the entry point for AI assistants. This project explores the opposite design philosophy. Rather than routing every customer query directly through an LLM, the system progressively escalates requests through deterministic semantic filters, curated retrieval, and local generation only when each cheaper alternative has been exhausted.
@@ -19,7 +19,7 @@ The result is an orchestration pipeline designed around predictable behaviour, b
 
 * **Deterministic Before Probabilistic**: Resolve or reject queries using fast, cached semantic lookups (Scope and FAQ layers) before invoking generative models. *Risk*: Static similarity thresholds can cause false positives, misclassifying valid queries as out-of-scope or routing them to incorrect FAQs.
 * **LLM as a Controlled Capability**: Treat the LLM as a schema-constrained utility rather than the main loop. Enforce output structures via Pydantic schemas (supporting Enums if needed) using LangChain bindings to guarantee JSON structure during planning and strict grounding during synthesis.
-* **Graceful Degradation over Silent Failure**: Explicitly handle failure modes at each stage. Present raw retrieved documents if synthesis fails, and return static domain refusals if retrieval returns nothing, eliminating hallucinations.
+* **Graceful Degradation over Silent Failure**: Explicitly handle failure modes at each stage. Present raw retrieved documents if synthesis fails, and return static domain refusals if retrieval returns nothing, reducing opportunities for hallucinations.
 * **Bounded Latency via Single-Pass Retrieval**: Execute search database lookups in a single pass without multi-turn agent loops, guaranteeing predictable response latency bounds suitable for real-time support.
 
 ---
@@ -56,30 +56,13 @@ graph TD
 
 The pipeline consists of five sequential stages implemented in `router_logic.py`.
 
-### 1. Scope Filter (`run_scope_filter`)
-* **Problem**: Out-of-scope queries consume computation resources and expose the downstream LLM to potential safety risks.
-* **Decision**: Compute semantic similarity againstcentroids of pre-defined intent clusters (`data/intents.json`) using `all-MiniLM-L6-v2` via `sentence-transformers`. Queries scoring below the **Scope Threshold** (default: `0.40`) are rejected immediately with a static refusal.
-* **Trade-off**: Setting thresholds too high increases false negatives (rejecting valid queries), while setting them too low lets noise pass.
-
-### 2. FAQ Layer (`run_faq_layer`)
-* **Problem**: Repetitive queries do not require dynamic contextual reasoning or expensive LLM generation.
-* **Decision**: Perform vector distance searches against embedded Q&A pairs (`data/Ecommerce_FAQ_Chatbot_dataset.json`). If a query matches above the **FAQ Match Threshold** (default: `0.80`), the curated static answer is returned instantly, bypassing the LLM.
-* **Trade-off**: Fast and cost-free, but static answers cannot adapt to dynamic query parameters (e.g. cart totals, order details).
-
-### 3. Execution Planner (`run_execution_planner`)
-* **Problem**: Natural language model outputs are non-deterministic and fragile to parse programmatically for pipeline routing.
-* **Decision**: Classify requests into one of five structured paths (`refuse`, `clarify`, `rag`, `rag_llm`, `escalate`) using local `Gemma-4-E2B-it` served via `llama.cpp`. Output schemas are strictly enforced using LangChain's native Pydantic parser bindings.
-* **Trade-off**: Enforcing schema constraints on LLM generation increases classification latency but guarantees 100% parseable, deterministic routing.
-
-### 4. Retrieval Layer (`run_retrieval_layer`)
-* **Problem**: Support documents contain tables and rate matrices that naive text chunking destroys, making numerical lookup unreliable.
-* **Decision**: Parse PDF files using IBM's `Docling` engine to preserve markdown tables, store them in a local `ChromaDB` database, and enforce a **Retrieval Similarity Threshold** (default: `0.30`) to filter out low-confidence context.
-* **Trade-off**: Ingestion is slower than standard character chunking. Rendering complex tables and unstructured markdown cleanly inside chat dialogue containers also remains a visual/parsing challenge.
-
-### 5. Response Synthesis (`run_response_generation`)
-* **Problem**: Presenting raw text chunks is verbose and difficult for users to scan.
-* **Decision**: Generate grounded answers using `Gemma-4-E2B-it` with structured prompts (`prompts.py`). The model is instructed to output a visible reasoning `<thought>` block before the response, and is strictly restricted to retrieved document contents.
-* **Trade-off**: Executing a secondary LLM synthesis pass introduces latency, which is why it is reserved exclusively for the `rag_llm` path.
+| Stage | Goal | Trade-off |
+|-------|------|-----------|
+| **1. Scope Filter** (`run_scope_filter`) | Prevent out-of-scope queries from consuming resources and exposing downstream components by computing semantic similarity against predefined intent centroids (`data/intents.json`) using `all-MiniLM-L6-v2`, rejecting queries below the **Scope Threshold** (default: `0.40`). | Higher thresholds increase false negatives, while lower thresholds allow more irrelevant queries through. |
+| **2. FAQ Layer** (`run_faq_layer`) | Eliminate unnecessary LLM calls for repetitive queries by performing vector similarity search over embedded FAQ pairs (`data/Ecommerce_FAQ_Chatbot_dataset.json`) and returning curated answers above the **FAQ Match Threshold** (default: `0.80`). | Fast and cost-free, but static answers cannot adapt to dynamic user-specific information. |
+| **3. Execution Planner** (`run_execution_planner`) | Enable deterministic pipeline routing by classifying requests into `refuse`, `clarify`, `rag`, `rag_llm`, or `escalate` using local `Gemma-4-E2B-it`, with outputs enforced through LangChain's native Pydantic parser. | Schema enforcement adds latency but guarantees deterministic, parseable routing outputs. |
+| **4. Retrieval Layer** (`run_retrieval_layer`) | Preserve document structure and improve retrieval reliability by parsing PDFs with IBM `Docling`, indexing them in local `ChromaDB`, and filtering retrieved context using a **Retrieval Similarity Threshold** (default: `0.30`). | Slower document ingestion than naive chunking, and rendering complex tables cleanly in chat remains challenging. |
+| **5. Response Synthesis** (`run_response_generation`) | Produce concise, grounded responses by generating answers with `Gemma-4-E2B-it` using retrieved context and structured prompts while restricting generation to retrieved documents. | A secondary LLM synthesis pass increases latency, so it is reserved exclusively for the `rag_llm` path. |
 
 ---
 

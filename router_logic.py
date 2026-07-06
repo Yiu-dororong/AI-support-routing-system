@@ -1,95 +1,35 @@
 import json
 import os
-from typing import Any, Literal
+from typing import Any
 
 import numpy as np
-from dotenv import load_dotenv
 from langchain_chroma import Chroma
 from langchain_core.documents import Document as LCDocument
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
 
-import prompts
-
-
-# Configuration Defaults (overridable by environment variables)
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# Load environment variables from .env if it exists
-load_dotenv()
-
-SENTENCE_TRANSFORMER_MODEL = os.environ.get(
-    "SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2"
-)
-LLM_REPO_ID = os.environ.get("LLM_REPO_ID", "unsloth/gemma-4-E2B-it-GGUF")
-LLM_FILENAME = os.environ.get("LLM_FILENAME", "gemma-4-E2B-it-UD-Q4_K_XL.gguf")
-
-DEFAULT_DATA_DIR = os.path.join(BASE_DIR, "data")
-DEFAULT_LLAMA_BIN_DIR = os.path.join(BASE_DIR, "llama_bin")
-DEFAULT_CHROMA_PATH = os.path.join(DEFAULT_DATA_DIR, "chroma_db")
-
-DATA_DIR = os.environ.get("SUPPORT_ROUTER_DATA_DIR", DEFAULT_DATA_DIR)
-LLAMA_BIN_DIR = os.environ.get("LLAMA_BIN_DIR", DEFAULT_LLAMA_BIN_DIR)
-CHROMA_PATH = os.environ.get("CHROMA_PATH", DEFAULT_CHROMA_PATH)
-
-INTENTS_FILE = os.environ.get(
-    "INTENTS_FILE", os.path.join(DATA_DIR, "intents.json")
-)
-FAQS_FILE = os.environ.get(
-    "FAQS_FILE",
-    os.path.join(DATA_DIR, "Ecommerce_FAQ_Chatbot_dataset.json"),
+from app.router import Router
+from config.models import (
+    LLAMA_BIN_DIR,
+    LLAMA_SERVER_PORT,
+    LLAMA_SERVER_URL,
+    LLAMA_ZIP_URL,
+    LLM_FILENAME,
+    LLM_REPO_ID,
+    SENTENCE_TRANSFORMER_MODEL,
 )
 
-LLAMA_SERVER_HOST = os.environ.get("LLAMA_SERVER_HOST", "127.0.0.1")
-LLAMA_SERVER_PORT = os.environ.get("LLAMA_SERVER_PORT", "8080")
-LLAMA_SERVER_URL = os.environ.get(
-    "LLAMA_SERVER_URL", f"http://{LLAMA_SERVER_HOST}:{LLAMA_SERVER_PORT}"
-)
-LLAMA_ZIP_URL = os.environ.get(
-    "LLAMA_ZIP_URL",
-    (
-        "https://github.com/ggml-org/llama.cpp/releases/download/"
-        "b9840/llama-b9840-bin-win-cpu-x64.zip"
-    ),
-)
-
-# Ensure directory structure exists
-os.makedirs(DATA_DIR, exist_ok=True)
-
-
-# Pydantic models for structured routing
-class RoutingDecision(BaseModel):
-    path: Literal["refuse", "clarify", "rag", "rag_llm", "escalate"] = Field(
-        description=(
-            "The routing path for the query. 'refuse' for unsafe/abusive "
-            "content, 'clarify' for underspecified/vague queries, 'rag' for "
-            "simple factual lookups, 'rag_llm' for queries requiring "
-            "reasoning/synthesis, and 'escalate' for human handoff."
-        )
-    )
-    reason: str = Field(description="A brief explanation for this routing decision.")
-    clarification_question: str | None = Field(
-        default=None,
-        description=(
-            "If path is 'clarify', the clarification question to ask the user. "
-            "Otherwise null/None."
-        ),
-    )
-    refusal_message: str | None = Field(
-        default=None,
-        description=(
-            "If path is 'refuse', the refusal message to show. Otherwise null/None."
-        ),
-    )
-
-
-def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
-    norm_a = np.linalg.norm(a)
-    norm_b = np.linalg.norm(b)
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return float(np.dot(a, b) / (norm_a * norm_b))
+# Import refactored architectural configurations
+from config.settings import CHROMA_PATH, DATA_DIR, FAQS_FILE, INTENTS_FILE
+from core.faq import FAQHandler
+from core.planner import ExecutionPlanner
+from core.scope import IntentClassifier
+from core.types import RoutingDecision
+from llm.generator import ResponseGenerator
+from rag.bm25 import BM25SearchEngine
+from rag.chroma import ChromaRetriever
+from rag.pipeline import RAGPipeline
+from rag.reranker import DocumentReranker
 
 
 class SupportRouter:
@@ -99,15 +39,13 @@ class SupportRouter:
             f"Initializing SentenceTransformer model ({SENTENCE_TRANSFORMER_MODEL})...",
             flush=True,
         )
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name=SENTENCE_TRANSFORMER_MODEL
-        )
+        self.embeddings = HuggingFaceEmbeddings(model_name=SENTENCE_TRANSFORMER_MODEL)
 
         # Download local execution planner model weights
         from huggingface_hub import hf_hub_download
 
         print("Ensuring local execution planner model is downloaded...", flush=True)
-        llm_dir = os.path.join(BASE_DIR, "llm")
+        llm_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "llm")
         try:
             self.local_model_path = hf_hub_download(
                 repo_id=LLM_REPO_ID,
@@ -317,9 +255,7 @@ class SupportRouter:
 
                         content = page.page_content.strip()
                         lines = [
-                            line.strip()
-                            for line in content.split("\n")
-                            if line.strip()
+                            line.strip() for line in content.split("\n") if line.strip()
                         ]
 
                         category = "general"
@@ -368,10 +304,24 @@ class SupportRouter:
                         else:
                             title = doc_title or "Support Guide"
 
+                        # Segment public documents from internal documents
+                        is_internal = any(
+                            doc_id.startswith(prefix)
+                            for prefix in [f"doc_{idx:02d}" for idx in range(11, 21)]
+                            + ["doc_22", "doc_23"]
+                        )
+                        allowed_roles = (
+                            ["employee"] if is_internal else ["customer", "employee"]
+                        )
+
                         kb_docs.append(
                             LCDocument(
                                 page_content=content,
-                                metadata={"title": title, "category": category},
+                                metadata={
+                                    "title": title,
+                                    "category": category,
+                                    "allowed_roles": allowed_roles,
+                                },
                                 id=doc_id,
                             )
                         )
@@ -380,8 +330,7 @@ class SupportRouter:
                 for idx, faq in enumerate(self.faqs):
                     faq_id = f"faq_{idx + 1}"
                     faq_content = (
-                        f"Question: {faq['question']}\n"
-                        f"Answer: {faq['answer']}"
+                        f"Question: {faq['question']}\nAnswer: {faq['answer']}"
                     )
                     faq_title = f"FAQ: {faq['question']}"
                     faq_category = faq.get("intent", "general")
@@ -392,6 +341,7 @@ class SupportRouter:
                             metadata={
                                 "title": faq_title,
                                 "category": faq_category,
+                                "allowed_roles": ["customer", "employee"],
                             },
                             id=faq_id,
                         )
@@ -406,33 +356,76 @@ class SupportRouter:
         except Exception as e:
             print(f"Chroma ingestion warning/error: {e}", flush=True)
 
-        # Populate self.kb_documents dynamically from database for UI Inspector
+        # Populate self.kb_documents dynamically from database
+        # for UI Inspector and BM25 Search Engine
         self.kb_documents = []
         try:
             results = self.vector_store.get()
             if results and results["documents"]:
                 for idx in range(len(results["documents"])):
+                    meta = results["metadatas"][idx] or {}
+                    allowed_roles = meta.get("allowed_roles", ["customer", "employee"])
+                    if isinstance(allowed_roles, str):
+                        try:
+                            allowed_roles = json.loads(allowed_roles)
+                        except Exception:
+                            allowed_roles = [
+                                r.strip() for r in allowed_roles.split(",") if r.strip()
+                            ]
+
+                    doc_meta = {
+                        "title": meta.get("title", "Support Guide"),
+                        "category": meta.get("category", "general"),
+                        "allowed_roles": allowed_roles,
+                    }
                     self.kb_documents.append(
                         {
                             "id": results["ids"][idx],
                             "content": results["documents"][idx],
-                            "title": results["metadatas"][idx]["title"],
-                            "category": results["metadatas"][idx]["category"],
+                            "title": doc_meta["title"],
+                            "category": doc_meta["category"],
+                            "metadata": doc_meta,
                         }
                     )
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Populate kb_documents warning: {e}", flush=True)
+
+        # Instantiate modular components matching folder layout
+        self.intent_classifier = IntentClassifier(self.intent_centroids)
+        self.faq_handler = FAQHandler(self.faq_embeddings)
+        self.planner = ExecutionPlanner(self.structured_planner)
+
+        self.chroma = ChromaRetriever(self.vector_store)
+        self.bm25 = BM25SearchEngine(self.kb_documents)
+        self.reranker = DocumentReranker(timeout_ms=250.0)
+        self.rag_pipeline = RAGPipeline(self.chroma, self.bm25, self.reranker)
+
+        self.router = Router(
+            intent_classifier=self.intent_classifier,
+            faq_handler=self.faq_handler,
+            planner=self.planner,
+            rag_pipeline=self.rag_pipeline,
+        )
+
+        self.generator = ResponseGenerator(
+            synthesis_llm=self.synthesis_llm,
+            server_exe=self.server_exe,
+            local_model_path=self.local_model_path,
+        )
 
         # Warm up the LLM to trigger server-side model loading and grammar
         # compilation during initialization
         try:
             print("Warming up local LLM model and compiling grammar...", flush=True)
             from langchain_core.messages import HumanMessage, SystemMessage
+
+            from llm import prompts as llm_prompts
+
             dummy_messages = [
-                SystemMessage(content=prompts.EXECUTION_PLANNER_SYSTEM_PROMPT),
+                SystemMessage(content=llm_prompts.EXECUTION_PLANNER_SYSTEM_PROMPT),
                 HumanMessage(
                     content=(
-                        prompts.EXECUTION_PLANNER_USER_TEMPLATE.format(
+                        llm_prompts.EXECUTION_PLANNER_USER_TEMPLATE.format(
                             intent="general", query="ping"
                         )
                     )
@@ -453,20 +446,12 @@ class SupportRouter:
         return np.array(self.embeddings.embed_query(query))
 
     def run_scope_filter(
-        self, query_emb: np.ndarray, threshold: float = 0.4
+        self, query_emb: np.ndarray, threshold: float = 0.15
     ) -> tuple[bool, str, dict[str, float]]:
         """
         [0] Scope Filter: Check if the query is in-scope against intent centroids.
         """
-        similarities = {}
-        for intent_id, centroid in self.intent_centroids.items():
-            similarities[intent_id] = cosine_similarity(query_emb, centroid)
-
-        max_intent = max(similarities, key=similarities.get)
-        max_score = similarities[max_intent]
-
-        in_scope = max_score >= threshold
-        return in_scope, max_intent, similarities
+        return self.router.classify_intent(query_emb, threshold=threshold)
 
     def run_faq_layer(
         self, query_emb: np.ndarray, threshold: float = 0.8
@@ -474,25 +459,7 @@ class SupportRouter:
         """
         [1] FAQ Layer: Look for a high-confidence match in the FAQ dataset.
         """
-        matches = []
-        for faq in self.faq_embeddings:
-            score = cosine_similarity(query_emb, faq["embedding"])
-            matches.append(
-                {
-                    "question": faq["question"],
-                    "answer": faq["answer"],
-                    "intent": faq["intent"],
-                    "score": score,
-                }
-            )
-
-        # Sort matches by score descending
-        matches.sort(key=lambda x: x["score"], reverse=True)
-
-        best_match = matches[0] if matches else None
-        if best_match and best_match["score"] >= threshold:
-            return best_match, matches[:3]  # Return best match and top 3 candidates
-        return None, matches[:3]
+        return self.router.match_faq(query_emb, threshold=threshold)
 
     def run_execution_planner(
         self, query: str, intent: str, callbacks=None, metadata: dict = None
@@ -501,107 +468,30 @@ class SupportRouter:
         [2] Execution Planner: Use a local Gemma-4-E2B model
         to determine the execution path.
         """
-        if (
-            not hasattr(self, "local_model_path")
-            or not self.local_model_path
-            or not os.path.exists(self.server_exe)
-        ):
-            # Fallback if local model is not initialized/found
-            return RoutingDecision(
-                path="rag",
-                reason=(
-                    "Local Gemma-4 model or llama.cpp binary not found. "
-                    "Defaulting to standard RAG lookup."
-                ),
-            ), None
-
-        from langchain_core.messages import HumanMessage, SystemMessage
-
-        messages = [
-            SystemMessage(content=prompts.EXECUTION_PLANNER_SYSTEM_PROMPT),
-            HumanMessage(
-                content=prompts.EXECUTION_PLANNER_USER_TEMPLATE.format(
-                    intent=intent, query=query
-                )
-            ),
-        ]
-
-        config = {"callbacks": callbacks}
-        if metadata:
-            config["metadata"] = metadata
-            config["run_name"] = "support_router_query"
-
-        try:
-            decision = self.structured_planner.invoke(
-                messages, config=config
-            )
-            raw_output = decision.model_dump_json(indent=2)
-            return decision, raw_output
-        except Exception as e:
-            # Fallback on failure
-            return RoutingDecision(
-                path="rag",
-                reason=(
-                    f"Local execution planning failed with error: {str(e)}. "
-                    "Defaulting to standard RAG lookup."
-                ),
-            ), f"Error details: {str(e)}"
+        return self.router.plan_routing(
+            query, intent, callbacks=callbacks, metadata=metadata
+        )
 
     def run_retrieval_layer(
         self,
         query_input: str | np.ndarray,
         n_results: int = 2,
         threshold: float = 0.0,
+        user_role: str = "customer",
     ) -> tuple[list[dict[str, Any]], str | None]:
         """
-        [3] Retrieval Layer: Query ChromaDB for top-k matching support documents.
+        [3] Retrieval Layer: Query RAGPipeline for top-k matching support documents.
         """
         try:
-            if isinstance(query_input, np.ndarray):
-                # Use raw chromadb collection query by embedding vector
-                res = self.vector_store._collection.query(
-                    query_embeddings=[query_input.tolist()],
-                    n_results=n_results,
-                )
-                docs = []
-                if res and res["documents"] and len(res["documents"]) > 0:
-                    for i in range(len(res["documents"][0])):
-                        dist = (
-                            res["distances"][0][i]
-                            if res["distances"]
-                            else 0.0
-                        )
-                        similarity = 1.0 - dist
-                        if similarity >= threshold:
-                            docs.append(
-                                {
-                                    "id": res["ids"][0][i],
-                                    "content": res["documents"][0][i],
-                                    "metadata": res["metadatas"][0][i],
-                                    "distance": dist,
-                                    "similarity": similarity,
-                                }
-                            )
-                return docs, None
-            else:
-                results = self.vector_store.similarity_search_with_score(
-                    query_input, k=n_results
-                )
-                docs = []
-                for doc, score in results:
-                    # Cosine distance: similarity = 1.0 - score
-                    similarity = 1.0 - score
-                    if similarity >= threshold:
-                        docs.append(
-                            {
-                                "id": doc.id,
-                                "content": doc.page_content,
-                                "metadata": doc.metadata,
-                                "distance": score,
-                                "similarity": similarity,
-                            }
-                        )
-                return docs, None
+            docs = self.router.retrieve_rag_documents(
+                query_input, user_role=user_role, n_results=n_results
+            )
+            filtered_docs = []
+            for doc in docs:
+                similarity = doc.get("similarity", 1.0)
+                if similarity >= threshold:
+                    filtered_docs.append(doc)
+            return filtered_docs, None
         except Exception as e:
             return [], str(e)
 
@@ -616,88 +506,9 @@ class SupportRouter:
         [4] Response Generation: Synthesize the final answer using local
         Gemma-4-E2B, grounded only in the retrieved documents.
         """
-        if (
-            not hasattr(self, "local_model_path")
-            or not self.local_model_path
-            or not os.path.exists(self.server_exe)
-        ):
-            # Fallback if local model/binary is missing
-            fallback_resp = prompts.LLM_UNAVAILABLE_FALLBACK_HEADER
-            for doc in retrieved_docs:
-                fallback_resp += (
-                    f"**{doc['metadata']['title']}** "
-                    f"(Confidence: {doc['similarity']:.2f})\n"
-                    f"{doc['content']}\n\n"
-                )
-            return (
-                fallback_resp,
-                "Local model not initialized. Surfaced retrieved documents directly.",
-            )
-
-        # Prepare context from retrieved documents
-        context_str = ""
-        for i, doc in enumerate(retrieved_docs):
-            context_str += (
-                f"--- Document {i + 1}: {doc['metadata']['title']} ---\n"
-                f"{doc['content']}\n\n"
-            )
-
-        from langchain_core.messages import HumanMessage, SystemMessage
-
-        messages = [
-            SystemMessage(content=prompts.RESPONSE_SYNTHESIS_SYSTEM_PROMPT),
-            HumanMessage(
-                content=prompts.RESPONSE_SYNTHESIS_USER_TEMPLATE.format(
-                    context_str=context_str, query=query
-                )
-            ),
-        ]
-
-        user_part = prompts.RESPONSE_SYNTHESIS_USER_TEMPLATE.format(
-            context_str=context_str, query=query
+        return self.generator.generate(
+            query=query,
+            retrieved_docs=retrieved_docs,
+            callbacks=callbacks,
+            metadata=metadata,
         )
-        prompt = (
-            f"System:\n{prompts.RESPONSE_SYNTHESIS_SYSTEM_PROMPT}\n\n"
-            f"User:\n{user_part}"
-        )
-
-        config = {"callbacks": callbacks}
-        if metadata:
-            config["metadata"] = metadata
-            config["run_name"] = "support_router_query"
-
-        try:
-            response = self.synthesis_llm.invoke(
-                messages, config=config
-            )
-
-            content = response.content
-            reasoning = ""
-            if hasattr(response, "additional_kwargs"):
-                reasoning = response.additional_kwargs.get("reasoning_content", "")
-            if not reasoning and response.response_metadata:
-                reasoning = response.response_metadata.get("reasoning_content", "")
-
-            if reasoning:
-                raw_output = (
-                    f"[Start thinking]\n{reasoning}\n[End thinking]\n\n{content}"
-                )
-            else:
-                raw_output = content
-            return raw_output, prompt
-        except Exception as e:
-            # Fallback on failure: Surface supporting articles directly
-            fallback_resp = prompts.LLM_SYNTHESIS_FAILED_FALLBACK_HEADER
-            for doc in retrieved_docs:
-                fallback_resp += (
-                    f"**{doc['metadata']['title']}** "
-                    f"(Confidence: {doc['similarity']:.2f})\n"
-                    f"{doc['content']}\n\n"
-                )
-            return (
-                fallback_resp,
-                (
-                    "Local model synthesis failed with error: "
-                    f"{str(e)}. Surfaced retrieved documents directly."
-                ),
-            )

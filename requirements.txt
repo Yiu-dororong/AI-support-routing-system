@@ -17,3 +17,4 @@ langchain
 langchain-openai
 langchain-chroma
 langchain-huggingface
+rank-bm25

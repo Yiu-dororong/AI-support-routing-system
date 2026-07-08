@@ -16,11 +16,10 @@ Rather than routing every query through an LLM, this system applies **progressiv
 
 ## 🎯 Design Principles
 
-* **Deterministic Before Probabilistic**: Run fast semantic lookups (Scope Filter, FAQ) before invoking any generative model.
-* **Hybrid Search for Alphanumerics**: Combine dense vector search (ChromaDB) with sparse lexical search (BM25) to handle exact product codes and SKUs that embeddings alone miss.
-* **LLM as a Schema-Constrained Utility**: Enforce JSON output structures via Pydantic schemas and LangChain grammar bindings—LLM is a tool, not the main loop.
-* **Separation of Access Scopes (Soft RBAC)**: Segment internal employee policies from customer documents using retrieval-time metadata filters.
-* **Graceful Degradation over Hallucination**: Serve raw retrieved documents if synthesis fails; return static refusals if retrieval returns empty.
+* **Deterministic Before Probabilistic**: Scope filtering and FAQ lookup resolve the majority of repetitive queries in under 20ms at zero token cost—LLM inference is reserved for requests that genuinely require it. *Risk: static similarity thresholds can misclassify edge-case queries as out-of-scope.*
+* **Hybrid Search for Alphanumerics**: Pure vector embeddings degrade silently on exact alphanumeric strings—a query for `VT-Titan_XL-99` may semantically match the wrong document with no error signal. BM25 alongside dense retrieval catches what embeddings miss.
+* **Separation of Access Scopes (Soft RBAC)**: Internal employee policies are segmented from customer documents at retrieval time using metadata filters. This is an application-layer constraint, not a cryptographic boundary—sufficient for a prototype, but must be replaced with network-level isolation in production.
+* **Graceful Degradation over Hallucination**: Every stage has an explicit failure path: synthesis falls back to raw retrieved documents; empty retrieval returns a static refusal. A confident but fabricated answer is treated as a worse outcome than no answer.
 
 ---
 
@@ -73,7 +72,9 @@ graph TD
 | **RAG LLM Synthesis** | + ChromaDB + LLM | 2 (reasoning=ON) | ~13–15 s (cached) |
 
 > [!NOTE]
-> Latency profiles reflect local CPU inference with Gemma-4 2B. GPU or hosted API deployments reduce these to sub-second speeds. The Planner overhead is only worthwhile when a significant share of traffic is resolved by cheaper deterministic paths—see [TECHNICAL.md](TECHNICAL.md) for a full cost trade-off discussion.
+> Latency profiles reflect local CPU inference with Gemma-4 E2B. GPU inference or cloud LLM inference services reduce these to sub-second speeds.
+
+**When this architecture pays off**: The two-stage Planner → **Synthesis pipeline only justifies its overhead when a substantial share of traffic is resolved by cheaper deterministic paths** (FAQ bypass, scope refusal, direct retrieval). In domains where most queries ultimately require LLM synthesis, the Planner adds latency with no proportional benefit—a simpler single-pass RAG is the better choice. See [TECHNICAL.md](TECHNICAL.md) for the full cost analysis.
 
 ---
 

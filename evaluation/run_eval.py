@@ -28,6 +28,7 @@ def main():
     total = len(dataset)
     correct_path_count = 0
     total_hit_rate = 0.0
+    retrieval_queries_count = 0
     failures = []
 
     # Process each query in the dataset
@@ -71,11 +72,9 @@ def main():
 
         # Calculate Hit@5
         hit_score = 0.0
-        if expected_path not in ["rag", "rag_llm"]:
-            # RAG bypassed or refused -> no documents expected
-            hit_score = 1.0
-            total_hit_rate += hit_score
-        elif ground_truth:
+        is_retrieval_query = expected_path in ["rag", "rag_llm"] and bool(ground_truth)
+        if is_retrieval_query:
+            retrieval_queries_count += 1
             matched = False
             for gt in ground_truth:
                 gt_base = gt.split("_page")[0]
@@ -91,10 +90,8 @@ def main():
             hit_score = 1.0 if matched else 0.0
             total_hit_rate += hit_score
         else:
-            # If no ground truth docs are expected, retrieval success is
-            # 1.0 (empty expected)
+            # RAG bypassed, refused, or expecting empty context (e.g. RBAC checks)
             hit_score = 1.0
-            total_hit_rate += hit_score
 
         # Log failures
         if not is_path_correct or (ground_truth and hit_score == 0.0):
@@ -115,7 +112,9 @@ def main():
 
     # Print summary
     path_accuracy = (correct_path_count / total) * 100
-    avg_hit_rate = (total_hit_rate / total) * 100
+    avg_hit_rate = 0.0
+    if retrieval_queries_count > 0:
+        avg_hit_rate = (total_hit_rate / retrieval_queries_count) * 100
 
     print("=" * 50, flush=True)
     print(" EVALUATION RESULTS", flush=True)
@@ -125,7 +124,11 @@ def main():
         f"Routing Path Accuracy:  {path_accuracy:.1f}% ({correct_path_count}/{total})",
         flush=True,
     )
-    print(f"Retrieval Hit@5 Rate:    {avg_hit_rate:.1f}%", flush=True)
+    hit_rate_str = (
+        f"Retrieval Hit@5 Rate (RAG only): {avg_hit_rate:.1f}% "
+        f"({int(total_hit_rate)}/{retrieval_queries_count})"
+    )
+    print(hit_rate_str, flush=True)
     print("=" * 50, flush=True)
 
     if failures:

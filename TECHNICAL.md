@@ -158,12 +158,9 @@ The evaluation was executed on local CPU hardware:
 
 To evaluate retrieval quality beyond exact-match accuracy, the system was benchmarked using the **RAGAS** framework on the subset of queries requiring document retrieval (**37 samples**).
 
-| Metric            |     Score |
-| ----------------- | --------: |
-| Faithfulness      | **0.818** |
-| Answer Relevance  | **0.316** |
-| Context Recall    | **0.973** |
-| Context Precision | **0.594** |
+| Metric | Faithfulness | Context Recall | Context Precision | Answer Relevance |
+| --- | --- | --- | --- | --- |
+| **Score** | **0.818** | **0.973** | **0.594** | **0.316** |
 
 * **Faithfulness (0.818)** indicates that generated responses were generally well grounded in the retrieved context, with relatively few unsupported claims.
 * **Context Recall (0.973)** demonstrates that the retrieval pipeline almost always surfaced the evidence required to answer the question.
@@ -176,8 +173,7 @@ Current document ingestion preserves each PDF page as a single chunk to maintain
 
 Future iterations will investigate:
 
-* Parsing PDFs into structured Markdown using **Docling**
-* Applying **hierarchical section-aware chunking** instead of page-level chunks
+* Parsing PDFs into structured Markdown using **Docling** and applying **hierarchical section-aware chunking** instead of page-level chunks
 * Preserving page references while generating finer semantic retrieval units
 * Comparing hierarchical chunking against page-based ingestion using the same RAGAS benchmark
 
@@ -188,6 +184,6 @@ It is expected that these will improve Answer Relevance and Context Precision wi
 ## ⚠️ Known Limitations
 
 * **ChromaDB-based RBAC is not a secure access control mechanism**: Metadata filtering operates entirely at the application logic layer and lacks native hardware, container, or network separation.
-* **Cross-encoder reranking introduces latency under high load**: Evaluating query-context pairs simultaneously requires substantial computational budget ($O(N)$ transformer forwards), which poses scalability challenges compared to simple inner-product vector indexing.
+* **Cross-encoder reranking introduces latency under high load**: Evaluating query-context pairs simultaneously requires substantial computational budget. To maintain scalability under high load, candidate depth must be restricted prior to cross-encoding, reducing evaluation pools to cap execution time.
 * **Evaluation dataset may not fully represent production query distribution**: Ground-truth test suites contain pre-engineered query-response pairs, which can fail to capture real-world drift, user syntax variance, or conversational follow-ups.
 * **Page-level chunking increases context density.** While preserving layout and citation fidelity, a single PDF page may contain multiple independent sections. This introduces retrieval noise and was reflected in RAGAS through relatively low Answer Relevance and moderate Context Precision. Future work will explore hierarchical section-aware chunking built on Docling's Markdown output.

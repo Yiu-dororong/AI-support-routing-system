@@ -49,19 +49,9 @@ graph TD
 
 ---
 
-## ⚙️ Pipeline Stages
+## 📈 Benchmarks
 
-| Stage | Description |
-| :--- | :--- |
-| **[0] Scope Filter** | Rejects out-of-scope queries via cosine similarity against intent centroids. Queries below the **Scope Threshold** (default: `0.15`) receive an informative refusal. |
-| **[1] FAQ Layer** | Returns curated FAQ answers above the **FAQ Match Threshold** (default: `0.80`), bypassing the LLM entirely. |
-| **[2] Execution Planner** | Classifies queries into `refuse`, `clarify`, `rag`, `rag_llm`, or `escalate` using local Gemma-4, with outputs validated against a Pydantic schema. |
-| **[3] Retrieval Layer** | Runs hybrid BM25 + ChromaDB search with RRF fusion and Cross-Encoder re-ranking, filtered by user role metadata. |
-| **[4] Response Synthesis** | Generates grounded answers from retrieved context using Gemma-4. Only invoked on the `rag_llm` path. |
-
----
-
-## 📈 Benchmarks & Expected Latency
+### Expected Latency
 
 | Outcome Path | Active Components | LLM Passes | Expected Runtime |
 | :--- | :--- | :---: | :--- |
@@ -71,10 +61,9 @@ graph TD
 | **RAG Direct** | + ChromaDB | 1 (reasoning=OFF) | ~4–5 s (cached) |
 | **RAG LLM Synthesis** | + ChromaDB + LLM | 2 (reasoning=ON) | ~13–15 s (cached) |
 
-> [!NOTE]
-> Latency profiles reflect local CPU inference with Gemma-4 E2B. GPU inference or cloud LLM inference services reduce these to sub-second speeds.
+*Note: Latency profiles reflect local CPU inference with Gemma-4 E2B. GPU inference or cloud LLM inference services reduce these to sub-second speeds.*
 
-**When this architecture pays off**: The two-stage Planner → **Synthesis pipeline only justifies its overhead when a substantial share of traffic is resolved by cheaper deterministic paths** (FAQ bypass, scope refusal, direct retrieval). In domains where most queries ultimately require LLM synthesis, the Planner adds latency with no proportional benefit—a simpler single-pass RAG is the better choice. See [TECHNICAL.md](TECHNICAL.md) for the full cost analysis.
+**The two-stage Planner → Synthesis pipeline only justifies its overhead when a substantial share of traffic is resolved by cheaper deterministic paths** (FAQ bypass, scope refusal, direct retrieval). In domains where most queries ultimately require LLM synthesis, the Planner adds latency with no proportional benefit—a simpler single-pass RAG is the better choice.
 
 ### Routing Accuracy & Retrieval Quality
 
@@ -83,27 +72,23 @@ The evaluation is performed based a [golden dataset](data/eval/dataset.json) of 
 * **Routing Path Accuracy**: **73.3%** (44/60 queries correctly routed)
 * **Retrieval Hit@5 Rate (RAG only)**: **97.3%** (36/37 queries expecting retrieval successfully retrieved the target context)
 
-The retrieval pipeline was additionally evaluated using **RAGAS** on **37 retrieval tasks**.
+The retrieval pipeline was evaluated using **RAGAS** on the **37 queries**.
 
-| Metric            |     Score |
-| ----------------- | --------: |
-| Faithfulness      | **0.818** |
-| Context Recall    | **0.973** |
-| Context Precision | **0.594** |
-| Answer Relevance  | **0.316** |
+| Metric | Faithfulness | Context Recall | Context Precision | Answer Relevance |
+| --- | --- | --- | --- | --- |
+| **Score** | 0.818 | 0.973 | 0.594 | 0.316 |
 
-The results indicate that the hybrid retrieval pipeline reliably retrieves the required evidence while remaining faithful to source documents. The primary remaining limitation is page-level chunk granularity, where multiple unrelated sections may coexist within a single retrieved chunk. Future work will investigate hierarchical chunking over Docling-generated Markdown to improve semantic precision.
+Retrieval faithfulness and recall are strong; the main gap is context precision and answer relevance, attributable to page-level chunk granularity. See [TECHNICAL.md](TECHNICAL.md) for the full analysis and improvement roadmap.
 
 ---
 
-## 🛠️ Technology Stack
+## 🛠️ Tech Stack
 
-| Component | Technology |
+| Component | Tools |
 | :--- | :--- |
-| **Core Runtime** | Python 3.10+ |
 | **Vector Database** | ChromaDB (local persistence) |
 | **Embeddings Model** | sentence-transformers (`all-MiniLM-L6-v2`) |
-| **Lexical Engine** | rank_bm25 |
+| **Retrieval** | Hybrid Search (BM25 + Dense, fused with RRF) |
 | **Re-ranking Model** | CrossEncoder (`ms-marco-MiniLM-L-6-v2`) |
 | **Document Parser** | IBM Docling (page-based partitioning) |
 | **Inference Engine** | llama.cpp [(b9840 CPU Binary)](https://github.com/ggml-org/llama.cpp/releases/tag/b9840) |
@@ -169,9 +154,12 @@ The Streamlit dashboard provides real-time slider controls for the **Scope**, **
 1. **Semantic Cache**: Add a Redis cache ahead of the Scope Filter to short-circuit repeated queries at zero compute cost.
 2. **Specialized Router Model**: Replace the 2B LLM planner with a fine-tuned BERT classifier for sub-10ms routing latency.
 3. **Stateful Conversations**: Append conversation history to prompts for multi-turn support, with KV-cache pruning or sliding-window context management.
+4. **Document Segmentation Upgrade**: Parse PDFs into structured Markdown and apply hierarchical section-aware chunking to preserving page references while generating finer semantic retrieval units.
 
 ---
 
-*This project evolved from an experimental RAG document assistant into a modular orchestration system as requirements for deterministic routing, bounded inference, and human escalation emerged.*
+## 📝 Development Notes
 
-> For implementation internals—chunking strategy, hybrid search design, RBAC mechanics, evaluation results, and local inference optimizations—see [TECHNICAL.md](TECHNICAL.md).
+> This project evolved from an experimental RAG document assistant into a modular orchestration system as requirements for deterministic routing, bounded inference, and human escalation emerged.
+
+*For implementation internals—chunking strategy, hybrid search design, RBAC mechanics, evaluation results, and local inference optimizations—see [TECHNICAL.md](TECHNICAL.md).*

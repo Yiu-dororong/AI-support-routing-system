@@ -1,13 +1,29 @@
 import os
 import sys
 
-
-# Ensure root is in sys.path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from evaluation.datasets import load_evaluation_dataset
 from evaluation.failure_analysis import classify_failure
 from router_logic import SupportRouter
+
+
+# Disable Ragas background tracking/telemetry calls
+# to avoid DNS resolution/network timeouts
+os.environ["DO_NOT_TRACK"] = "1"
+os.environ["DISABLE_TELEMETRY"] = "1"
+
+
+# Prevent the evaluation directory from shadowing third-party packages
+# (like HuggingFace datasets)
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+if sys.path and os.path.abspath(sys.path[0]) == os.path.abspath(_script_dir):
+    sys.path.pop(0)
+
+# Ensure project root is at the front of sys.path
+_project_root = os.path.dirname(_script_dir)
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
+
 
 
 def main():
@@ -80,9 +96,7 @@ def main():
                 gt_base = gt.split("_page")[0]
                 for doc in retrieved_docs:
                     doc_base = doc["id"].split("_page")[0]
-                    if doc_base.startswith(gt_base) or gt_base.startswith(
-                        doc_base
-                    ):
+                    if doc_base.startswith(gt_base) or gt_base.startswith(doc_base):
                         matched = True
                         break
                 if matched:
@@ -145,6 +159,59 @@ def main():
             )
     else:
         print("\nAll queries routed and retrieved perfectly!", flush=True)
+
+    # Construct complete evaluation report dict
+    report = {
+        "routing_retrieval": {
+            "total_queries": total,
+            "routing_accuracy_pct": round(path_accuracy, 2),
+            "routing_correct_count": correct_path_count,
+            "routing_errors_count": total - correct_path_count,
+            "retrieval_hit_rate_pct": round(avg_hit_rate, 2),
+            "retrieval_correct_count": int(total_hit_rate),
+            "retrieval_total_count": retrieval_queries_count,
+            "failures_count": len(failures),
+            "failures": failures,
+        },
+        "ragas": None
+    }
+
+    # 6. RAGAS Semantic Evaluation (optional, if key and packages are present)
+    from evaluation.ragas_eval import (
+        build_ragas_samples_from_eval_items,
+        is_ragas_available,
+        run_ragas_evaluation,
+    )
+
+    if is_ragas_available():
+        print("\n" + "=" * 50, flush=True)
+        print(" RUNNING RAGAS SEMANTIC EVALUATION", flush=True)
+        print("=" * 50, flush=True)
+        ragas_samples = build_ragas_samples_from_eval_items(dataset, router=router)
+        if ragas_samples:
+            # By default it will use model & batch size from environment vars
+            # (RAGAS_LLM_MODEL, RAGAS_BATCH_SIZE)
+            ragas_result = run_ragas_evaluation(ragas_samples)
+            import dataclasses  # noqa: PLC0415
+            import json  # noqa: PLC0415
+            ragas_dict = dataclasses.asdict(ragas_result)
+            report["ragas"] = ragas_dict
+            print("\nRAGAS Evaluation Results (JSON):", flush=True)
+            print(json.dumps(ragas_dict, indent=2), flush=True)
+        else:
+            print("No RAG/RAG_LLM queries to evaluate.", flush=True)
+        print("=" * 50, flush=True)
+
+    # Save complete report to a JSON file
+    import json  # noqa: PLC0415
+    from datetime import datetime  # noqa: PLC0415
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_dir = os.path.join("data", "eval")
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, f"ragas_results_{timestamp}.json")
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2)
+    print(f"\nSaved complete evaluation report to: {output_path}", flush=True)
 
 
 if __name__ == "__main__":

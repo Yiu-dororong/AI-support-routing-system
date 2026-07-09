@@ -16,5 +16,9 @@ langfuse>=2.0.0
 langchain
 langchain-openai
 langchain-chroma
+langchain_google_genai
 langchain-huggingface
 rank-bm25
+ragas=0.4.3
+openai
+datasets

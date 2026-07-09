@@ -76,6 +76,24 @@ graph TD
 
 **When this architecture pays off**: The two-stage Planner → **Synthesis pipeline only justifies its overhead when a substantial share of traffic is resolved by cheaper deterministic paths** (FAQ bypass, scope refusal, direct retrieval). In domains where most queries ultimately require LLM synthesis, the Planner adds latency with no proportional benefit—a simpler single-pass RAG is the better choice. See [TECHNICAL.md](TECHNICAL.md) for the full cost analysis.
 
+### Routing Accuracy & Retrieval Quality
+
+The evaluation is performed based a [golden dataset](data/eval/dataset.json) of 60 queries.
+
+* **Routing Path Accuracy**: **73.3%** (44/60 queries correctly routed)
+* **Retrieval Hit@5 Rate (RAG only)**: **97.3%** (36/37 queries expecting retrieval successfully retrieved the target context)
+
+The retrieval pipeline was additionally evaluated using **RAGAS** on **37 retrieval tasks**.
+
+| Metric            |     Score |
+| ----------------- | --------: |
+| Faithfulness      | **0.818** |
+| Context Recall    | **0.973** |
+| Context Precision | **0.594** |
+| Answer Relevance  | **0.316** |
+
+The results indicate that the hybrid retrieval pipeline reliably retrieves the required evidence while remaining faithful to source documents. The primary remaining limitation is page-level chunk granularity, where multiple unrelated sections may coexist within a single retrieved chunk. Future work will investigate hierarchical chunking over Docling-generated Markdown to improve semantic precision.
+
 ---
 
 ## 🛠️ Technology Stack

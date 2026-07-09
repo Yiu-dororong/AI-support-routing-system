@@ -53,10 +53,15 @@ Ranked candidate lists from ChromaDB and BM25 are merged using a **Query-Adaptiv
 * **Rationale**: Ordinal ranks are combined using weights that shift based on query style. For general queries, we balance dense semantic matching and exact keyword matching (`bm25_weight = 1.2`, `dense_weight = 1.0`).
 * **Adaptive Boosting**: If a query is identified as containing model identifiers, version codes, or capacity units (e.g., `v1`, `Titan-C`, `100Wh`), the system dynamically increases lexical priority (`bm25_weight = 1.8`, `dense_weight = 0.8`) to ensure SKU precision.
 
-### 3. Cross-Encoder Re-ranking with Latency Budget Guards
-The top candidates returned by RRF are re-evaluated using a Cross-Encoder model (`ms-marco-MiniLM-L-6-v2`) to capture deep query-context relevance. 
-* **Proactive Latency Control**: Reranking latency scales linearly with candidate count. To protect the latency budget on CPU, the input is strictly pruned to the top **15 candidates** before prediction, preventing runaway CPU cycles.
-* **Post-Hoc Timeout Warning**: If the reranking pass exceeds a **250ms** threshold, a latency budget warning is logged for performance monitoring. Because CPU-bound inference in Python cannot be preemptively interrupted mid-operation without prohibitive multiprocessing overhead, the system continues with the successfully computed reranked results (as the latency has already been paid) rather than discarding them.
+### 3. Cross-Encoder Re-ranking with Latency Budget
+
+The top candidates returned by RRF are re-evaluated using a Cross-Encoder model (`ms-marco-MiniLM-L-6-v2`) to capture deep query-context relevance.
+
+* **Latency Budget**: The reranker is designed to operate within a **250–300 ms target latency** under normal CPU workloads. Because CrossEncoder inference executes as a synchronous transformer forward pass, it **cannot be preemptively interrupted once computation has begun**. Consequently, if inference exceeds the latency budget, the system can only emit a performance warning—the computational cost has already been incurred.
+
+* **Cold-start Mitigation**: A dummy inference is executed during application startup to warm the model, eliminating the initial **7.3 s (7299 ms)** cold-start delay caused by model loading and runtime initialization.
+
+* **Practical Mitigations**: Since runtime cancellation is impractical without introducing expensive multiprocessing or process isolation, latency is primarily controlled **before inference**. The current system reranks the **top 15** RRF candidates. When operating under higher CPU load or tighter latency budgets, this can be adaptively reduced (e.g., **15 → 10 → 5** candidates), sacrificing some reranking accuracy in exchange for more predictable latency.
 
 ---
 
@@ -149,20 +154,34 @@ The evaluation was executed on local CPU hardware:
 2. **Access Control Verification**: Role metadata filters successfully blocked customer queries from retrieving internal documents.
 3. **Cross-Encoder Latency Pruning**: Under CPU load, candidate pruning to 15 items capped cross-encoder inference time. When the 250ms budget was exceeded, the system retained the reranked results rather than discarding them—since the latency cost had already been paid.
 
-### 3. Proposed Automated RAG Evaluation (RAGAS Framework - Roadmap)
-> [!NOTE]
-> **Implementation Status**: This is a planned upgrade for the offline evaluation suite. Currently, stubs are defined in [ragas_eval.py](file:///E:/agy/router/AI-support-routing-system/evaluation/ragas_eval.py) but are not executed in the active benchmark suite ([run_eval.py](file:///E:/agy/router/AI-support-routing-system/evaluation/run_eval.py)) to avoid the latency and API cost of running generative LLM judges on CPU.
+### 3. RAGAS Evaluation
 
-RAGAS (Retrieval Augmented Generation Assessment) evaluates output quality by prompting an LLM judge to score semantic attributes rather than doing exact-match comparisons.
+To evaluate retrieval quality beyond exact-match accuracy, the system was benchmarked using the **RAGAS** framework on the subset of queries requiring document retrieval (**37 samples**).
 
-#### 3.1 LLM-Judged Metrics
+| Metric            |     Score |
+| ----------------- | --------: |
+| Faithfulness      | **0.818** |
+| Answer Relevance  | **0.316** |
+| Context Recall    | **0.973** |
+| Context Precision | **0.594** |
 
-| Metric | What it measures | How the evaluator scores it |
-| :--- | :--- | :--- |
-| **Faithfulness** | Whether the response is supported only by retrieved context. | Extracts claims from the response and verifies each against the retrieved chunks. |
-| **Answer Relevance** | Whether the response directly addresses the question. | Generates hypothetical queries from the answer and measures similarity to the original input. |
-| **Context Recall** | Whether retrieval captured all statements needed by the ground-truth answer. | Compares ground-truth sentences against retrieved chunks to identify missing links. |
-| **Context Precision** | Whether the most relevant chunks are ranked at the top. | Analyzes relevance scores across rank positions in the context block. |
+* **Faithfulness (0.818)** indicates that generated responses were generally well grounded in the retrieved context, with relatively few unsupported claims.
+* **Context Recall (0.973)** demonstrates that the retrieval pipeline almost always surfaced the evidence required to answer the question.
+* **Context Precision (0.594)** suggests that retrieval often included additional non-essential context alongside the relevant passages, which is reasonable based on our page-based ingestion, information on each chunk is diluted.
+* **Answer Relevance (0.316)** was substantially lower than the other metrics. This metric reverse-engineers the user's question from the generated answer; because document chunks frequently contain multiple unrelated sections on the same page, generated answers naturally cover surrounding context beyond the queried subsection, reducing the reconstructed-query similarity despite retrieving the correct evidence.
+
+### 4. Planned Improvements
+
+Current document ingestion preserves each PDF page as a single chunk to maintain table integrity, layout structure, and page-level provenance. However, pages often contain multiple independent sections, reducing semantic granularity for downstream retrieval and evaluation.
+
+Future iterations will investigate:
+
+* Parsing PDFs into structured Markdown using **Docling**
+* Applying **hierarchical section-aware chunking** instead of page-level chunks
+* Preserving page references while generating finer semantic retrieval units
+* Comparing hierarchical chunking against page-based ingestion using the same RAGAS benchmark
+
+It is expected that these will improve Answer Relevance and Context Precision without abandoning the page-level ingestion decision.
 
 ---
 
@@ -171,4 +190,4 @@ RAGAS (Retrieval Augmented Generation Assessment) evaluates output quality by pr
 * **ChromaDB-based RBAC is not a secure access control mechanism**: Metadata filtering operates entirely at the application logic layer and lacks native hardware, container, or network separation.
 * **Cross-encoder reranking introduces latency under high load**: Evaluating query-context pairs simultaneously requires substantial computational budget ($O(N)$ transformer forwards), which poses scalability challenges compared to simple inner-product vector indexing.
 * **Evaluation dataset may not fully represent production query distribution**: Ground-truth test suites contain pre-engineered query-response pairs, which can fail to capture real-world drift, user syntax variance, or conversational follow-ups.
-* **Chunking heuristics may still split semantic boundaries in complex documents**: Document parser models (e.g., Docling) or character/token splitter offsets can split key clauses across adjacent chunks, leading to degraded context recall.
+* **Page-level chunking increases context density.** While preserving layout and citation fidelity, a single PDF page may contain multiple independent sections. This introduces retrieval noise and was reflected in RAGAS through relatively low Answer Relevance and moderate Context Precision. Future work will explore hierarchical section-aware chunking built on Docling's Markdown output.

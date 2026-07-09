@@ -4,7 +4,10 @@ import os
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 SENTENCE_TRANSFORMER_MODEL = os.environ.get(
-    "SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2"
+    "SENTENCE_TRANSFORMER_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
+)
+RERANKER_MODEL = os.environ.get(
+    "RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2"
 )
 LLM_REPO_ID = os.environ.get("LLM_REPO_ID", "unsloth/gemma-4-E2B-it-GGUF")
 LLM_FILENAME = os.environ.get("LLM_FILENAME", "gemma-4-E2B-it-UD-Q4_K_XL.gguf")

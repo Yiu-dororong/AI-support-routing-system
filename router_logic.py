@@ -16,6 +16,7 @@ from config.models import (
     LLAMA_ZIP_URL,
     LLM_FILENAME,
     LLM_REPO_ID,
+    RERANKER_MODEL,
     SENTENCE_TRANSFORMER_MODEL,
 )
 
@@ -35,17 +36,37 @@ from rag.reranker import DocumentReranker
 class SupportRouter:
     def __init__(self, chroma_path: str | None = None):
         chroma_path = chroma_path or CHROMA_PATH
+        # Download SentenceTransformer model weights to local embeddings/ folder
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        embeddings_dir = os.path.join(current_dir, "embeddings")
         print(
-            f"Initializing SentenceTransformer model ({SENTENCE_TRANSFORMER_MODEL})...",
+            "Ensuring SentenceTransformer model is downloaded to "
+            f"'{embeddings_dir}'...",
             flush=True,
         )
-        self.embeddings = HuggingFaceEmbeddings(model_name=SENTENCE_TRANSFORMER_MODEL)
+        try:
+            from huggingface_hub import snapshot_download
+
+            local_embeddings_path = snapshot_download(
+                repo_id=SENTENCE_TRANSFORMER_MODEL,
+                local_dir=embeddings_dir,
+            )
+        except Exception as e:
+            print(
+                "Failed to download SentenceTransformer model, falling back to "
+                f"HF cache: {e}",
+                flush=True,
+            )
+            local_embeddings_path = SENTENCE_TRANSFORMER_MODEL
+
+        self.embeddings = HuggingFaceEmbeddings(model_name=local_embeddings_path)
 
         # Download local execution planner model weights
         from huggingface_hub import hf_hub_download
 
         print("Ensuring local execution planner model is downloaded...", flush=True)
-        llm_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "llm")
+        llm_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "llm")
         try:
             self.local_model_path = hf_hub_download(
                 repo_id=LLM_REPO_ID,
@@ -63,6 +84,27 @@ class SupportRouter:
                 os.path.join(llm_dir, f"**/{LLM_FILENAME}"), recursive=True
             )
             self.local_model_path = files[0] if files else None
+
+        # Download reranker model weights to local reranker/ folder
+        reranker_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    "reranker")
+        print(
+            f"Ensuring reranker model is downloaded to '{reranker_dir}'...",
+            flush=True,
+        )
+        try:
+            from huggingface_hub import snapshot_download
+
+            self.reranker_model_path = snapshot_download(
+                repo_id=RERANKER_MODEL,
+                local_dir=reranker_dir,
+            )
+        except Exception as e:
+            print(
+                f"Failed to download reranker model, falling back to HF cache: {e}",
+                flush=True,
+            )
+            self.reranker_model_path = RERANKER_MODEL
 
         self.llama_bin_dir = LLAMA_BIN_DIR
         self.server_exe = os.path.join(self.llama_bin_dir, "llama-server.exe")
@@ -397,7 +439,8 @@ class SupportRouter:
 
         self.chroma = ChromaRetriever(self.vector_store)
         self.bm25 = BM25SearchEngine(self.kb_documents)
-        self.reranker = DocumentReranker(timeout_ms=300.0)
+        self.reranker = DocumentReranker(model_name=self.reranker_model_path,
+                                         timeout_ms=300.0)
         self.rag_pipeline = RAGPipeline(self.chroma, self.bm25, self.reranker)
 
         self.router = Router(

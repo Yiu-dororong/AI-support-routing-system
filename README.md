@@ -109,7 +109,7 @@ copy .env.example .env
 streamlit run app/main.py
 ```
 
-*(Optional)* Configure Langfuse and Hugging Face credentials in `.env`. The llama.cpp binary and Gemma model weights are auto-downloaded on first run.
+*(Optional)* Configure Langfuse and Hugging Face credentials in `.env`. The llama.cpp binary and all models we used (Gemma, reranker, sentence transformer) are auto-downloaded on first run.
 
 ```powershell
 python -m pytest                       # unit tests
@@ -132,6 +132,8 @@ router/
 │   └── ragas_eval.py                  # RAGAS stubs (planned)
 ├── llama_bin/llama-server.exe         # Auto-downloaded llama.cpp binary
 ├── llm/gemma-4-E2B-it-UD-Q4_K_XL.gguf
+├── reranker/
+├── embeddings/
 ├── app.py                             # Streamlit entry point
 ├── router_logic.py                    # Routing pipeline
 ├── prompts.py                         # LLM system prompts

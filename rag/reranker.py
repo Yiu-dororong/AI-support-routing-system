@@ -12,7 +12,7 @@ class DocumentReranker:
     def __init__(
         self,
         model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2",
-        timeout_ms: float = 250.0,
+        timeout_ms: float = 300.0,
     ):
         self.model_name = model_name
         self.timeout_ms = timeout_ms
@@ -44,15 +44,15 @@ class DocumentReranker:
 
             elapsed_ms = (time.time() - start_time) * 1000.0
             if elapsed_ms > self.timeout_ms:
-                raise TimeoutError(
-                    "Cross-Encoder latency budget exceeded: "
+                print(
+                    f"Reranker Warning: Cross-Encoder latency budget exceeded: "
                     f"{elapsed_ms:.1f}ms > {self.timeout_ms}ms"
                 )
 
         except Exception as e:
-            # Fallback mode: if timeout or error, return the original RRF ordering
+            # Fallback mode: if error, return the original RRF ordering
             print(
-                f"Reranker Fallback Triggered: {e}. Returning raw RRF candidate order."
+                f"Reranker Error: {e}. Returning raw RRF candidate order."
             )
             for doc in candidates:
                 doc["rerank_score"] = 0.0

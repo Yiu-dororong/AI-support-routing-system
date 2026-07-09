@@ -14,4 +14,4 @@ def classify_failure(
     # Simple classification rule placeholder
     if not retrieved_docs:
         return "E1: Retrieval Failure"
-    return "No failure detected"
+    return "Unclassified failure"

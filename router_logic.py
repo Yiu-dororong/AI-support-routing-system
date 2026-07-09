@@ -397,7 +397,7 @@ class SupportRouter:
 
         self.chroma = ChromaRetriever(self.vector_store)
         self.bm25 = BM25SearchEngine(self.kb_documents)
-        self.reranker = DocumentReranker(timeout_ms=250.0)
+        self.reranker = DocumentReranker(timeout_ms=300.0)
         self.rag_pipeline = RAGPipeline(self.chroma, self.bm25, self.reranker)
 
         self.router = Router(
@@ -412,6 +412,14 @@ class SupportRouter:
             server_exe=self.server_exe,
             local_model_path=self.local_model_path,
         )
+
+        # Warm up the reranker to avoid cold-start latency budget warnings
+        try:
+            print("Warming up reranker model...", flush=True)
+            self.reranker.warmup()
+            print("Reranker warm-up complete!", flush=True)
+        except Exception as e:
+            print(f"Reranker warm-up warning: {e}", flush=True)
 
         # Warm up the LLM to trigger server-side model loading and grammar
         # compilation during initialization

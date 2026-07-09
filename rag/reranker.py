@@ -24,6 +24,20 @@ class DocumentReranker:
             self._model = CrossEncoder(self.model_name)
         return self._model
 
+    def warmup(self) -> None:
+        """
+        Warm up the CrossEncoder model
+        by triggering model load and running a dummy query.
+        This prevents latency budget warnings on the first real rerank.
+        """
+        try:
+            # Accessing the property triggers initialization/loading of the weights
+            model = self.model
+            # Execute a dummy prediction to warm up compilation/caching
+            model.predict([["warmup query", "warmup document"]])
+        except Exception as e:
+            print(f"Reranker warm-up warning: {e}", flush=True)
+
     def rerank(self, query: str, candidates: list[dict], top_m: int = 5) -> list[dict]:
         # Latency control: only evaluate top 10-15 candidates from RRF output
         candidates = candidates[:15]

@@ -68,6 +68,15 @@ def test_reranker_latency_fallback():
     assert results[0]["id"] == "doc_A"
 
 
+def test_reranker_warmup():
+    reranker = DocumentReranker()
+    reranker._model = MagicMock()
+    reranker.warmup()
+    reranker._model.predict.assert_called_once_with(
+        [["warmup query", "warmup document"]]
+        )
+
+
 def test_rag_pipeline_graceful_fallback():
     chroma = MagicMock()
     bm25 = MagicMock()

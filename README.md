@@ -157,7 +157,6 @@ The Streamlit dashboard provides real-time slider controls for the **Scope**, **
 1. **Semantic Cache**: Add a Redis cache ahead of the Scope Filter to short-circuit repeated queries at zero compute cost.
 2. **Specialized Router Model**: Replace the 2B LLM planner with a fine-tuned BERT classifier for sub-10ms routing latency.
 3. **Stateful Conversations**: Append conversation history to prompts for multi-turn support, with KV-cache pruning or sliding-window context management.
-4. **Document Segmentation Upgrade**: Parse PDFs into structured Markdown and apply hierarchical section-aware chunking to preserving page references while generating finer semantic retrieval units.
 
 ---
 

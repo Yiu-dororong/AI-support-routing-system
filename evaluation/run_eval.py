@@ -44,6 +44,7 @@ def main():
     total = len(dataset)
     correct_path_count = 0
     total_hit_rate = 0.0
+    total_hit_rate_at_1 = 0.0
     retrieval_queries_count = 0
     failures = []
 
@@ -86,20 +87,32 @@ def main():
             query, n_results=5, user_role=role
         )
 
-        # Calculate Hit@5
+        # Calculate Hit@5 and Hit@1
         hit_score = 0.0
+        hit_score_at_1 = 0.0
         is_retrieval_query = expected_path in ["rag", "rag_llm"] and bool(ground_truth)
         if is_retrieval_query:
             retrieval_queries_count += 1
-            matched = False
-            for gt in ground_truth:
-                gt_base = gt.split("_page")[0]
-                for doc in retrieved_docs:
-                    doc_base = doc["id"].split("_page")[0]
+
+            # Helper to check if doc matches ground truth
+            def doc_matches_gt(doc_id, gt_docs):
+                doc_base = doc_id.split("_page")[0]
+                for gt in gt_docs:
+                    gt_base = gt.split("_page")[0]
                     if doc_base.startswith(gt_base) or gt_base.startswith(doc_base):
-                        matched = True
-                        break
-                if matched:
+                        return True
+                return False
+
+            # Hit@1 Check
+            if retrieved_docs and doc_matches_gt(retrieved_docs[0]["id"], ground_truth):
+                hit_score_at_1 = 1.0
+            total_hit_rate_at_1 += hit_score_at_1
+
+            # Hit@5 Check
+            matched = False
+            for doc in retrieved_docs[:5]:
+                if doc_matches_gt(doc["id"], ground_truth):
+                    matched = True
                     break
             hit_score = 1.0 if matched else 0.0
             total_hit_rate += hit_score
@@ -127,8 +140,10 @@ def main():
     # Print summary
     path_accuracy = (correct_path_count / total) * 100
     avg_hit_rate = 0.0
+    avg_hit_rate_at_1 = 0.0
     if retrieval_queries_count > 0:
         avg_hit_rate = (total_hit_rate / retrieval_queries_count) * 100
+        avg_hit_rate_at_1 = (total_hit_rate_at_1 / retrieval_queries_count) * 100
 
     print("=" * 50, flush=True)
     print(" EVALUATION RESULTS", flush=True)
@@ -138,10 +153,15 @@ def main():
         f"Routing Path Accuracy:  {path_accuracy:.1f}% ({correct_path_count}/{total})",
         flush=True,
     )
+    hit_rate_at_1_str = (
+        f"Retrieval Hit@1 Rate (RAG only): {avg_hit_rate_at_1:.1f}% "
+        f"({int(total_hit_rate_at_1)}/{retrieval_queries_count})"
+    )
     hit_rate_str = (
         f"Retrieval Hit@5 Rate (RAG only): {avg_hit_rate:.1f}% "
         f"({int(total_hit_rate)}/{retrieval_queries_count})"
     )
+    print(hit_rate_at_1_str, flush=True)
     print(hit_rate_str, flush=True)
     print("=" * 50, flush=True)
 
@@ -167,6 +187,8 @@ def main():
             "routing_accuracy_pct": round(path_accuracy, 2),
             "routing_correct_count": correct_path_count,
             "routing_errors_count": total - correct_path_count,
+            "retrieval_hit_at_1_pct": round(avg_hit_rate_at_1, 2),
+            "retrieval_hit_at_1_correct_count": int(total_hit_rate_at_1),
             "retrieval_hit_rate_pct": round(avg_hit_rate, 2),
             "retrieval_correct_count": int(total_hit_rate),
             "retrieval_total_count": retrieval_queries_count,

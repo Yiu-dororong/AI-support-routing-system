@@ -1,3 +1,9 @@
+import os
+import sys
+
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import pandas as pd
 import streamlit as st
 
@@ -156,7 +162,7 @@ scope_threshold = st.sidebar.slider(
     "Scope Filter Threshold",
     min_value=0.1,
     max_value=0.9,
-    value=0.40,
+    value=0.15,
     step=0.05,
     help=(
         "Minimum cosine similarity against intent centroids required to "

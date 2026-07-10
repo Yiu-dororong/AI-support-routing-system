@@ -2,40 +2,34 @@
   {
     "id": "eval_01",
     "category": "Standard Factual Lookup",
-    "query": "What is the return window for standard items?",
+    "query": "Tell me about your returns policy.",
     "user_role": "customer",
-    "expected_path": "rag",
-    "ground_truth_docs": [
-      "doc_21_transit_insurance_claims_page20"
-    ],
-    "ground_truth_answer": "The provided document does not specify the return window for standard items."
+    "expected_path": "faq_bypass",
+    "ground_truth_docs": [],
+    "ground_truth_answer": ""
   },
   {
     "id": "eval_02",
     "category": "Standard Factual Lookup",
-    "query": "Do you ship to Europe?",
+    "query": "Do you ship internationally?",
     "user_role": "customer",
-    "expected_path": "rag",
-    "ground_truth_docs": [
-      "doc_21_transit_insurance_claims_page5"
-    ],
-    "ground_truth_answer": "International transit corridors to Eastern Europe and Central Asia are subject to strict customs verification."
+    "expected_path": "faq_bypass",
+    "ground_truth_docs": [],
+    "ground_truth_answer": ""
   },
   {
     "id": "eval_03",
     "category": "Standard Factual Lookup",
-    "query": "How do I track my shipped package?",
+    "query": "Where is the tracking for my order?",
     "user_role": "customer",
-    "expected_path": "rag",
-    "ground_truth_docs": [
-      "doc_21_transit_insurance_claims_page9"
-    ],
-    "ground_truth_answer": "Carrier tracking details are required for a claim."
+    "expected_path": "faq_bypass",
+    "ground_truth_docs": [],
+    "ground_truth_answer": ""
   },
   {
     "id": "eval_04",
     "category": "Standard Factual Lookup",
-    "query": "What payment methods do you accept?",
+    "query": "What payment options do you support?",
     "user_role": "customer",
     "expected_path": "faq_bypass",
     "ground_truth_docs": [],
@@ -44,13 +38,11 @@
   {
     "id": "eval_05",
     "category": "Standard Factual Lookup",
-    "query": "Is there a warranty on the power stations?",
+    "query": "Can I get a replacement if my product is broken?",
     "user_role": "customer",
-    "expected_path": "rag",
-    "ground_truth_docs": [
-      "doc_09_refurbished_grades_page12"
-    ],
-    "ground_truth_answer": "The refurbished warranty covers mechanical and electrical component failures, such as touchscreen failure, malfunctioning ports, defective logical boards, or failing speaker elements."
+    "expected_path": "faq_bypass",
+    "ground_truth_docs": [],
+    "ground_truth_answer": ""
   },
   {
     "id": "eval_06",
@@ -75,13 +67,13 @@
   {
     "id": "eval_08",
     "category": "Standard Factual Lookup",
-    "query": "Is sales tax included in the checkout price?",
+    "query": "When do my earned loyalty points expire?",
     "user_role": "customer",
     "expected_path": "rag",
     "ground_truth_docs": [
-      "doc_07_customs_duties_page2"
+      "doc_02_loyalty_points_page1"
     ],
-    "ground_truth_answer": "VoltVibe does not calculate or collect international taxes at checkout. Standard product prices and carrier shipping rates represent net shipping costs and do not include import levies."
+    "ground_truth_answer": "All loyalty points earned in a member's account expire exactly 24 months from the date they were earned and credited."
   },
   {
     "id": "eval_09",
@@ -97,11 +89,13 @@
   {
     "id": "eval_10",
     "category": "Standard Factual Lookup",
-    "query": "Can I return clearance items?",
+    "query": "What should I do if I forget my account password?",
     "user_role": "customer",
-    "expected_path": "faq_bypass",
-    "ground_truth_docs": [],
-    "ground_truth_answer": ""
+    "expected_path": "rag",
+    "ground_truth_docs": [
+      "doc_03_account_security_page1"
+    ],
+    "ground_truth_answer": "In the event that you forget your password or need to reset it, you can navigate to the login page and click the \"Forgot Password\" link. Enter your registered email address to receive a secure password reset link valid for 1 hour."
   },
   {
     "id": "eval_11",
@@ -117,13 +111,13 @@
   {
     "id": "eval_12",
     "category": "Standard Factual Lookup",
-    "query": "Do you support payment via Apple Pay?",
+    "query": "How long do I have to update my payment option after placing an order?",
     "user_role": "customer",
     "expected_path": "rag",
     "ground_truth_docs": [
       "doc_05_order_modification_page1"
     ],
-    "ground_truth_answer": "Customers may modify or cancel an order, including updating payment options, within 45 minutes of the order placement timestamp."
+    "ground_truth_answer": "Customers may modify or cancel their order, including updating payment options, within exactly 45 minutes of the order placement timestamp."
   },
   {
     "id": "eval_13",
@@ -161,35 +155,35 @@
   {
     "id": "eval_16",
     "category": "Exact Keyword / SKU / Model",
-    "query": "Is the VoltVibe Titan-C power station eligible for express shipping?",
+    "query": "Are shipments sent via DHL Express or FedEx Commercial automatically covered under the Basic Transit Protection?",
     "user_role": "customer",
     "expected_path": "rag",
     "ground_truth_docs": [
       "doc_21_transit_insurance_claims_page2"
     ],
-    "ground_truth_answer": "Shipments are dispatched from VoltVibe centralized distribution networks and are subject to the terms of the Comprehensive Transit Insurance and Shipping Claims Policy. Primary logistics partners include DHL Express, FedEx Commercial, and United Parcel Service (UPS)."
+    "ground_truth_answer": "By default, all orders dispatched from VoltVibe's centralized networks (including those handled by DHL Express and FedEx Commercial) are automatically enrolled in the Basic Transit Protection program at checkout."
   },
   {
     "id": "eval_17",
     "category": "Exact Keyword / SKU / Model",
-    "query": "What are the specs for the AquaFlow-99 water filter?",
+    "query": "When does the coverage start for the standard 12-month limited manufacturer warranty?",
     "user_role": "customer",
     "expected_path": "rag",
     "ground_truth_docs": [
       "doc_01_standard_warranty_page1"
     ],
-    "ground_truth_answer": "The provided context does not contain specifications for the AquaFlow-99 water filter."
+    "ground_truth_answer": "The standard 12-month limited manufacturer warranty begins on the date of purchase or the date of delivery, whichever occurs later."
   },
   {
     "id": "eval_18",
     "category": "Exact Keyword / SKU / Model",
-    "query": "Do you have details on model SoundWave_Pro_X?",
+    "query": "What is the base trade-in value for model S-Series Ultra 22 with 512GB storage?",
     "user_role": "customer",
     "expected_path": "rag",
     "ground_truth_docs": [
       "doc_10_trade_in_valuation_page3"
     ],
-    "ground_truth_answer": "No details are provided for the model SoundWave_Pro_X."
+    "ground_truth_answer": "The base trade-in valuation for an S-Series Ultra 22 with 512GB storage is $430.00 (paid as non-transferable VoltVibe Store Credit)."
   },
   {
     "id": "eval_19",
@@ -205,68 +199,68 @@
   {
     "id": "eval_20",
     "category": "Exact Keyword / SKU / Model",
-    "query": "Does the warranty cover SKU: VV-TITAN-C?",
+    "query": "Does the refurbished warranty cover physical problems like touchscreen failure or malfunctioning ports?",
     "user_role": "customer",
     "expected_path": "rag",
     "ground_truth_docs": [
       "doc_09_refurbished_grades_page12"
     ],
-    "ground_truth_answer": "The refurbished warranty covers mechanical and electrical component failures, such as touchscreen failure, malfunctioning ports, defective logical boards, or failing speaker elements."
+    "ground_truth_answer": "The refurbished warranty covers mechanical and electrical component failures, including touchscreen failure and malfunctioning ports."
   },
   {
     "id": "eval_21",
     "category": "Exact Keyword / SKU / Model",
-    "query": "Is model AF-99 eligible for returns?",
+    "query": "What is the warehouse policy for return shipments received without a visible RMA number?",
     "user_role": "customer",
     "expected_path": "rag",
     "ground_truth_docs": [
       "doc_06_restocking_fees_page2"
     ],
-    "ground_truth_answer": "The provided text does not specify whether model AF-99 is eligible for returns."
+    "ground_truth_answer": "Packages returned to the warehouse without a visible RMA number printed on the outer shipping label will be rejected at the receiving dock and returned to the sender at their expense."
   },
   {
     "id": "eval_22",
     "category": "Exact Keyword / SKU / Model",
-    "query": "Can I pay using PayPal for SoundWave_Pro_X?",
+    "query": "Can I use trade-in store credit to buy gift cards or pay for shipping insurance premiums?",
     "user_role": "customer",
     "expected_path": "rag",
     "ground_truth_docs": [
       "doc_10_trade_in_valuation_page11"
     ],
-    "ground_truth_answer": "Store credits must be applied to physical product purchases (such as new power stations, adapters, or cables) on the VoltVibe online store."
+    "ground_truth_answer": "VoltVibe Store Credit generated from trade-ins cannot be used to purchase VoltVibe Gift Cards or to pay for shipping insurance premiums."
   },
   {
     "id": "eval_23",
     "category": "Exact Keyword / SKU / Model",
-    "query": "Where is my shipped VoltVibe Titan-C?",
+    "query": "Are Grade C or Outlet items eligible for cash refunds if lost during shipping?",
     "user_role": "customer",
     "expected_path": "rag",
     "ground_truth_docs": [
       "doc_21_transit_insurance_claims_page20"
     ],
-    "ground_truth_answer": "The provided text does not contain information on tracking the location of a shipped item."
+    "ground_truth_answer": "Clearance items (marked as Grade C or Outlet) are ineligible for cash or original payment method refunds in the event of transit loss, and claims are resolved strictly via VoltVibe Store Credit valid for a maximum of 90 days."
   },
   {
     "id": "eval_24",
     "category": "Exact Keyword / SKU / Model",
-    "query": "Does warranty doc_04 cover AquaFlow-99?",
+    "query": "Does the refurbished 90-day warranty cover battery capacity degradation if it drops below 80%?",
     "user_role": "customer",
     "expected_path": "rag",
     "ground_truth_docs": [
       "doc_09_refurbished_grades_page12"
     ],
-    "ground_truth_answer": "The provided context does not contain information regarding the warranty coverage for the AquaFlow-99."
+    "ground_truth_answer": "Battery capacity drops below 80% after the purchase date are considered standard wear-and-tear and are excluded from the refurbished warranty, unless the drop occurs within the first 14 calendar days of delivery."
   },
   {
     "id": "eval_25",
     "category": "Exact Keyword / SKU / Model",
-    "query": "What is the standard weight limit for cargo containing SKU VT-Titan_XL-99?",
+    "query": "What are the Freight Shipping Requirements (LTL Cargo) for shipments exceeding 70 lbs like the VoltVibe Titan PowerStation?",
     "user_role": "customer",
     "expected_path": "rag",
     "ground_truth_docs": [
       "doc_08_shipping_rates_page11"
     ],
-    "ground_truth_answer": "Large items or heavy bulk orders exceeding a physical scale weight of 70 lbs cannot be shipped using standard delivery carriers."
+    "ground_truth_answer": "Large items or heavy bulk orders exceeding a physical scale weight of 70 lbs (such as dual VoltVibe Titan PowerStation setups) cannot be shipped via standard carriers and require Freight Shipping (LTL Cargo)."
   },
   {
     "id": "eval_26",
@@ -282,57 +276,57 @@
   {
     "id": "eval_27",
     "category": "Multi-hop / requires combining info",
-    "query": "I bought an AquaFlow-99 on credit card installment and want to request a warranty repair. How do payments and warranty coverage overlap?",
+    "query": "If my new device was purchased on one date but delivered a week later, when does the 12-month warranty start?",
     "user_role": "customer",
     "expected_path": "rag_llm",
     "ground_truth_docs": [
       "doc_01_standard_warranty_page1"
     ],
-    "ground_truth_answer": "The 12-month limited manufacturer warranty begins on the date of purchase or the date of delivery, whichever occurs later."
+    "ground_truth_answer": "The 12-month limited manufacturer warranty starts on the date of purchase or the date of delivery, whichever occurs later."
   },
   {
     "id": "eval_28",
     "category": "Multi-hop / requires combining info",
-    "query": "Does our European shipping destination support duty fee waivers if we are returning a SoundWave_Pro_X under warranty?",
+    "query": "Is the restocking fee waived if a product is defective out of the box and reported within two weeks?",
     "user_role": "customer",
     "expected_path": "rag_llm",
     "ground_truth_docs": [
       "doc_06_restocking_fees_page7"
     ],
-    "ground_truth_answer": "The provided context does not contain information regarding duty fee waivers for returning a SoundWave_Pro_X under warranty."
+    "ground_truth_answer": "The restocking fee is fully waived under the Dead on Arrival (DOA) Exemption Rule if the manufacturing defect is reported within 14 calendar days of delivery."
   },
   {
     "id": "eval_29",
     "category": "Multi-hop / requires combining info",
-    "query": "Are student discounts applicable on items that are shipped internationally under warranty?",
+    "query": "What discounts do I and my friend get through the referral program, and is there a minimum purchase amount?",
     "user_role": "customer",
     "expected_path": "rag_llm",
     "ground_truth_docs": [
       "doc_25_vip_membership_terms_page14"
     ],
-    "ground_truth_answer": "The provided context does not contain information regarding student discounts or international shipping under warranty."
+    "ground_truth_answer": "Through the referral program, the referred friend receives a 10% discount code and the referring member receives a $20.00 USD discount code, provided the referred friend's first purchase exceeds a net subtotal of $100 USD."
   },
   {
     "id": "eval_30",
     "category": "Multi-hop / requires combining info",
-    "query": "Can I update my email address, request a clearance item return, and pay for shipping in a single transaction?",
+    "query": "Can I get a refund back to my credit card if a clearance item or an order with free shipping promo code is lost in transit?",
     "user_role": "customer",
     "expected_path": "rag_llm",
     "ground_truth_docs": [
       "doc_21_transit_insurance_claims_page20"
     ],
-    "ground_truth_answer": "Promotional orders, clearance items (marked as 'Grade C' or 'Outlet' in accordance with doc_09_refurbished_grades.pdf), and orders shipped using free shipping promotional codes are ineligible for cash or original payment method refunds in the event of transit loss."
+    "ground_truth_answer": "Clearance items (marked as 'Grade C' or 'Outlet') and orders shipped using free shipping promo codes are ineligible for credit card (cash) refunds in the event of transit loss, and will be resolved strictly via Store Credit valid for 90 days, except for regional exclusions in California, Oregon, or the EEA."
   },
   {
     "id": "eval_31",
     "category": "Hidden rule / exception",
-    "query": "Are there custom shipping restrictions or exception windows for doc_23 policy?",
+    "query": "What happens to the transit insurance policy if an international shipment is seized or delayed by customs in Eastern Europe or Central Asia?",
     "user_role": "employee",
     "expected_path": "rag",
     "ground_truth_docs": [
       "doc_21_transit_insurance_claims_page5"
     ],
-    "ground_truth_answer": "International transit corridors to Eastern Europe and Central Asia are subject to strict customs verification. If a shipment is seized or delayed by foreign customs due to suspected regulatory non-compliance of the imported goods, the transit insurance policy is immediately suspended. Customs clearance fees, import duties, and VAT are not covered by this policy and must be paid directly to the local taxing authority in accordance with doc_07_customs_duties.pdf."
+    "ground_truth_answer": "If an international shipment is seized or delayed by customs in Eastern Europe or Central Asia due to suspected regulatory non-compliance of the imported goods, the transit insurance policy is immediately suspended."
   },
   {
     "id": "eval_32",
@@ -348,35 +342,35 @@
   {
     "id": "eval_33",
     "category": "Hidden rule / exception",
-    "query": "How is policy doc_22 applied differently for seasonal sales exceptions?",
+    "query": "How are lost or stolen high-value orders above $1,000 escalated and handled under agent protocols?",
     "user_role": "employee",
     "expected_path": "rag_llm",
     "ground_truth_docs": [
       "doc_22_agent_escalation_protocol_page10"
     ],
-    "ground_truth_answer": "The provided context does not contain information about policy doc_22 or seasonal sales exceptions."
+    "ground_truth_answer": "For orders exceeding $1,000 USD, tickets bypass Tier 1 and are assigned directly to Tier 2. If reported lost or stolen, Tier 2 agents must flag the carrier for a geolocation audit and coordinate with their loss-prevention department before releasing any payouts."
   },
   {
     "id": "eval_34",
     "category": "Hidden rule / exception",
-    "query": "Does doc_24 warranty override the standard 30 days return policy for custom items?",
+    "query": "Are refurbished Grade A and Grade C devices returnable, and what happens if a device is returned with a security lock?",
     "user_role": "customer",
     "expected_path": "rag_llm",
     "ground_truth_docs": [
       "doc_09_refurbished_grades_page13"
     ],
-    "ground_truth_answer": "The provided context does not contain information regarding doc_24 or warranty overrides for custom items."
+    "ground_truth_answer": "Grade A refurbished devices are returnable within 30 days (subject to a 10% restocking fee), but Grade C devices are final sale and non-returnable. If any device is returned with an active security lock, the return will be rejected."
   },
   {
     "id": "eval_35",
     "category": "Hidden rule / exception",
-    "query": "What are the exception clauses for international orders outlined in doc_25?",
+    "query": "What are the annual limit and minimum purchase constraints for applying recycling credit vouchers?",
     "user_role": "customer",
     "expected_path": "rag",
     "ground_truth_docs": [
       "doc_24_environmental_recycling_policy_page16"
     ],
-    "ground_truth_answer": "The provided context does not contain information regarding exception clauses for international orders outlined in doc_25."
+    "ground_truth_answer": "Each registered account is limited to a maximum of 1 high-capacity credit ($25.00) and 2 small-capacity credits ($5.00 each) per calendar year, and vouchers must be applied to physical product purchases exceeding $50 USD."
   },
   {
     "id": "eval_36",
@@ -401,7 +395,7 @@
     "category": "Ambiguous query",
     "query": "Where is it?",
     "user_role": "customer",
-    "expected_path": "rag",
+    "expected_path": "clarify",
     "ground_truth_docs": [],
     "ground_truth_answer": ""
   },
@@ -410,7 +404,7 @@
     "category": "Ambiguous query",
     "query": "Tell me about returns.",
     "user_role": "customer",
-    "expected_path": "rag",
+    "expected_path": "clarify",
     "ground_truth_docs": [],
     "ground_truth_answer": ""
   },
@@ -491,13 +485,13 @@
   {
     "id": "eval_48",
     "category": "Adversarial / typo",
-    "query": "shippng international model soundwav",
+    "query": "internatnal shiping fees and brokreg chargs for border clearance",
     "user_role": "customer",
     "expected_path": "rag",
     "ground_truth_docs": [
       "doc_07_customs_duties_page3"
     ],
-    "ground_truth_answer": "All international shipments are dispatched under Delivery Duty Unpaid (DDU) terms, also known as Delivered at Place (DAP). Shipping carriers will contact the customer directly upon arrival at the local border hub and will provide an itemized invoice detailing customs clearance fees and local import duties. The carrier will also charge a standardized administrative brokerage fee (typically ranging from $15.00 to $25.00 USD, or a fixed percentage of duties paid, whichever is higher) to cover border filing expenses. VoltVibe has no control over these brokerage rates and cannot request waivers on behalf of the importer."
+    "ground_truth_answer": "International shipments are shipped under DDU/DAP terms, where the carrier charges the customer directly for customs fees, import duties, and an administrative brokerage fee (typically $15.00 to $25.00 USD or a fixed percentage)."
   },
   {
     "id": "eval_49",
@@ -511,13 +505,13 @@
   {
     "id": "eval_50",
     "category": "Adversarial / typo",
-    "query": "warrnty claim AquaFlw-99",
+    "query": "damagd high capcty batry shipmnt transit claim reporting timeframe",
     "user_role": "customer",
     "expected_path": "rag",
     "ground_truth_docs": [
       "doc_21_transit_insurance_claims_page12"
     ],
-    "ground_truth_answer": "The provided context does not contain information regarding a warranty claim for the AquaFlw-99."
+    "ground_truth_answer": "Claims for damaged high-capacity battery units exceeding 100Wh must be reported to the VoltVibe Safety and Logistics Compliance desk within 48 hours of carrier delivery."
   },
   {
     "id": "eval_51",

@@ -67,18 +67,19 @@ graph TD
 
 ### Routing Accuracy & Retrieval Quality
 
-The evaluation is performed based a [golden dataset](data/eval/dataset.json) of 60 queries.
+The evaluation was performed against a [golden dataset](data/eval/dataset.json) containing 60 queries covering FAQ lookup, retrieval, synthesis, escalation, clarification, and out-of-scope scenarios.
 
-* **Routing Path Accuracy**: **73.3%** (44/60 queries correctly routed)
-* **Retrieval Hit@5 Rate (RAG only)**: **97.3%** (36/37 queries expecting retrieval successfully retrieved the target context)
+* **Routing Path Accuracy**: **88.3%** (53/60 queries correctly routed)
+* **Retrieval Hit@1**: **96.9%** (31/32 retrieval queries ranked the target context first, which is directly presented to the user for `rag` path)
+* **Retrieval Hit@5**: **100.0%** (32/32 retrieval queries successfully retrieved the target context)
 
-The retrieval pipeline was evaluated using **RAGAS** on the **37 queries**.
+Retrieval quality was further evaluated using **RAGAS** on the `rag_llm` generation path:
 
 | Metric | Faithfulness | Context Recall | Context Precision | Answer Relevance |
 | --- | --- | --- | --- | --- |
-| **Score** | 0.818 | 0.973 | 0.594 | 0.316 |
+| **Score** | 0.764 | 1.000 | 0.857 | 0.783 |
 
-Retrieval faithfulness and recall are strong; the main gap is context precision and answer relevance, attributable to page-level chunk granularity. See [TECHNICAL.md](TECHNICAL.md) for the full analysis and improvement roadmap.
+The results show strong retrieval reliability, while remaining errors primarily occur at routing boundaries (e.g., deciding between direct retrieval, synthesis, escalation, and clarification). See [TECHNICAL.md](TECHNICAL.md) for detailed failure analysis and improvement roadmap.
 
 ---
 

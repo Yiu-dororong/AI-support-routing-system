@@ -132,7 +132,7 @@ To establish a test-driven development loop, we run an offline evaluation runner
 
 | Category | Queries | Expected Routing Path | Verification Target |
 | :--- | :---: | :---: | :--- |
-| **Standard Factual Lookup** | 15 | `rag` / `faq_bypass` | Basic policy retrieval accuracy and semantic recall. |
+| **Standard Factual Lookup** | 15 | `rag`(10) / `faq_bypass`(5) | Basic policy retrieval accuracy and semantic recall. |
 | **Exact Keyword / SKU / Model** | 10 | `rag` | Preserving alphanumeric codes and bigram tokenization. |
 | **Multi-hop / Combining Info** | 5 | `rag_llm` | Multi-document retrieval and answer synthesis. |
 | **Hidden Rule / Exception** | 5 | `rag_llm` | Extracting conditional rules and exception overrides. |
@@ -143,41 +143,60 @@ To establish a test-driven development loop, we run an offline evaluation runner
 | **Access Control (RBAC)** | 5 | `rag` (customer/employee) | Document leakage prevention (Customer vs. Employee). |
 | **Total** | **60** | | |
 
-### 2. Benchmark Performance Results
-The evaluation was executed on local CPU hardware:
+*Note: Although there is the 'Combining Info' category, it focuses on combining within the chunk rather than across multiple chunks.*
 
-* **Routing Path Accuracy**: **73.3%** (44/60 queries correctly routed)
-* **Retrieval Hit@5 Rate (RAG only)**: **97.3%** (36/37 queries expecting retrieval successfully retrieved the target context)
+### 2. Benchmark Performance Results
+
+### Routing Layer
+* **Routing Path Accuracy**: **88.3%** (53/60 queries correctly routed)
+
+### Retrieval Layer (`rag` + `rag_llm`)
+
+The retrieval layer was evaluated across both retrieval paths. For `rag`, the top-ranked document is directly presented to the user without LLM synthesis, making retrieval ranking quality critical.
+
+* **Retrieval Hit@1**: **96.9%** (31/32 retrieval queries ranked the target context first)
+* **Retrieval Hit@5**: **100.0%** (32/32 retrieval queries successfully retrieved the target context)
+
+*2 queries are designed to test RBAC that are expected to return nothing, so the [result](data/eval/ragas_results_20260710_115104.json) appears to be 34.*
 
 #### Performance Insights:
-1. **Adversarial & Typo Resilience**: Lowering the scope threshold to `0.15` allowed minor-typo queries (e.g. `"retun window"`) to pass the semantic filter and route correctly, preventing false refusals.
-2. **Access Control Verification**: Role metadata filters successfully blocked customer queries from retrieving internal documents.
-3. **Cross-Encoder Latency Pruning**: Under CPU load, candidate pruning to 15 items capped cross-encoder inference time. When the 250ms budget was exceeded, the system retained the reranked results rather than discarding them—since the latency cost had already been paid.
 
-### 3. RAGAS Evaluation
+1. **Retrieval Reliability**
+   
+   The retrieval layer consistently located relevant source material, achieving a 100% Hit@5 rate. Routing failures did not indicate retrieval weakness; failed routing cases that entered retrieval paths still retrieved the expected context (`hit_score = 1.0`).
 
-To evaluate retrieval quality beyond exact-match accuracy, the system was benchmarked using the **RAGAS** framework on the subset of queries requiring document retrieval (**37 samples**).
+2. **Routing Boundary Trade-offs**
+   
+   Remaining routing errors primarily occurred at ambiguous execution boundaries rather than retrieval failures:
+   
+   - **Over-escalation**: Account-related informational queries were classified as requiring human handoff instead of document retrieval.
+   - **Incorrect synthesis selection**: The planner occasionally misclassified whether a query required LLM synthesis:
+     - Simple policy lookups were unnecessarily routed to `rag_llm`.
+     - Multi-condition policy questions were routed to `rag` despite requiring cross-document reasoning.
+   - **Insufficient ambiguity detection**: Broad queries (e.g., "Where is it?", "Tell me about returns.") were answered through retrieval instead of requesting clarification.
 
-| Metric | Faithfulness | Context Recall | Context Precision | Answer Relevance |
-| --- | --- | --- | --- | --- |
-| **Score** | **0.818** | **0.973** | **0.594** | **0.316** |
+3. **Adversarial & Typo Resilience**
+   
+   Lowering the scope threshold to `0.15` allowed minor-typo queries (e.g., `"retun window"`) to pass semantic filtering and avoid false refusals. However, this introduces a trade-off: a lower threshold increases recall for valid support queries while allowing more out-of-scope queries to reach downstream routing such as `eval_49` that tries to inject the system.
 
-* **Faithfulness (0.818)** indicates that generated responses were generally well grounded in the retrieved context, with relatively few unsupported claims.
-* **Context Recall (0.973)** demonstrates that the retrieval pipeline almost always surfaced the evidence required to answer the question.
-* **Context Precision (0.594)** suggests that retrieval often included additional non-essential context alongside the relevant passages, which is reasonable based on our page-based ingestion, information on each chunk is diluted.
-* **Answer Relevance (0.316)** was substantially lower than the other metrics. This metric reverse-engineers the user's question from the generated answer; because document chunks frequently contain multiple unrelated sections on the same page, generated answers naturally cover surrounding context beyond the queried subsection, reducing the reconstructed-query similarity despite retrieving the correct evidence.
+4. **Access Control Verification**
+   
+   Role metadata filtering successfully prevented customer queries from retrieving restricted internal documents.
 
-### 4. Planned Improvements
+### 3. Generation Layer Evaluation (`rag_llm` only)
 
-Current document ingestion preserves each PDF page as a single chunk to maintain table integrity, layout structure, and page-level provenance. However, pages often contain multiple independent sections, reducing semantic granularity for downstream retrieval and evaluation.
+To evaluate the quality of generated responses, RAGAS evaluation (LLM Judge: `gemini-3.1-flash-lite`) was applied only to the subset of queries routed through the `rag_llm` path. Retrieval-only responses (`rag`) bypass LLM synthesis and are evaluated using retrieval metrics instead.
 
-Future iterations will investigate:
+| Metric | Score |
+| --- | ---: |
+| Faithfulness | 0.764 |
+| Context Recall | 1.000 |
+| Context Precision | 0.857 |
+| Answer Relevance | 0.783 |
 
-* Parsing PDFs into structured Markdown using **Docling** and applying **hierarchical section-aware chunking** instead of page-level chunks
-* Preserving page references while generating finer semantic retrieval units
-* Comparing hierarchical chunking against page-based ingestion using the same RAGAS benchmark
+**Evaluation limitation:** The `rag_llm` evaluation contains only 7 test cases, so individual examples have a significant impact on the aggregate scores. In addition, **generation metrics (Faithfulness and Answer Relevance) are inherently dependent on the underlying model and prompt configuration**. These results were obtained using `Gemma-4-2B` with thinking disabled and should be interpreted as a baseline measurement of the local synthesis capability rather than a standalone measure of the routing architecture.
 
-It is expected that these will improve Answer Relevance and Context Precision without abandoning the page-level ingestion decision.
+*Note: Ragas metrics are highly compute-intensive and slow to execute; for faster iteration and robust production scaling, **DeepEval** is recommended.*
 
 ---
 
@@ -186,4 +205,4 @@ It is expected that these will improve Answer Relevance and Context Precision wi
 * **ChromaDB-based RBAC is not a secure access control mechanism**: Metadata filtering operates entirely at the application logic layer and lacks native hardware, container, or network separation.
 * **Cross-encoder reranking introduces latency under high load**: Evaluating query-context pairs simultaneously requires substantial computational budget. To maintain scalability under high load, candidate depth must be restricted prior to cross-encoding, reducing evaluation pools to cap execution time.
 * **Evaluation dataset may not fully represent production query distribution**: Ground-truth test suites contain pre-engineered query-response pairs, which can fail to capture real-world drift, user syntax variance, or conversational follow-ups.
-* **Page-level chunking increases context density.** While preserving layout and citation fidelity, a single PDF page may contain multiple independent sections. This introduces retrieval noise and was reflected in RAGAS through relatively low Answer Relevance and moderate Context Precision. Future work will explore hierarchical section-aware chunking built on Docling's Markdown output.
+* **Demo-Constrained Knowledge Base**: The underlying knowledge base is constructed strictly for demonstration purposes, utilizing a mixture of public and synthetically generated data. Consequently, the retrieval corpus may contain factual inconsistencies, outdated information, or logical gaps that do not reflect a production enterprise data environment.

@@ -10,4 +10,9 @@ if __name__ == "__main__":
 
     # Run the streamlit application
     cmd = [sys.executable, "-m", "streamlit", "run", main_path] + sys.argv[1:]
-    subprocess.run(cmd)
+    try:
+        subprocess.run(cmd)
+    except KeyboardInterrupt:
+        # Graceful exit without printing a giant Python traceback
+        print("\n[Target] Streamlit application shutdown successfully.")
+        sys.exit(0)

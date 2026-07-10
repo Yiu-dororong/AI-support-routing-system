@@ -56,11 +56,14 @@ You must choose exactly one of these 5 paths:
    policy documents or tracking links can assist the user, select this path.
 4. "rag_llm": The query is complex, requiring synthesis of multiple facts,
    comparisons, custom application to a scenario, or multi-step reasoning.
-5. "escalate": The query requires human support, actions beyond factual
-   questions, or business escalation (e.g. processing a refund request,
-   changing account details, dealing with transaction billing disputes,
-   manual review). Do NOT select this for simple status or tracking
-   questions that can be answered by tracking policy documents.
+5. "escalate": The query requires human support or an action beyond answering 
+    a factual question (e.g., processing refunds, modifying account information, 
+    resolving billing disputes, performing manual reviews, or handling 
+    account-specific issues). Do not select this for informational or instructional 
+    ("how-to") questions that can be answered from documentation. Only select 
+    "escalate" when the user is requesting the system or a human to perform an a
+    ction, access account-specific information, or intervene in an issue that 
+    cannot be resolved through documentation alone.
 Rule for Vague/General Queries:
 - If the user's query is vague, general, or ambiguous (e.g., they state
   they have a question or issue but do not specify what they need), you

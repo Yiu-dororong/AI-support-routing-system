@@ -65,9 +65,7 @@ class DocumentReranker:
 
         except Exception as e:
             # Fallback mode: if error, return the original RRF ordering
-            print(
-                f"Reranker Error: {e}. Returning raw RRF candidate order."
-            )
+            print(f"Reranker Error: {e}. Returning raw RRF candidate order.")
             for doc in candidates:
                 doc["rerank_score"] = 0.0
 

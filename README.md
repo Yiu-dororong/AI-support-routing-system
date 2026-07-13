@@ -146,6 +146,17 @@ router/
 
 ---
 
+### 🧩 MCP Extension (Optional)
+
+While a hybrid RAG pipeline retrieves stable documentation (FAQs, guides) effectively, it cannot handle **live transactional data** (e.g., order history) or **rapidly changing operational knowledge** (e.g., active promotion dates) which do not belong in a static vector index. 
+
+* **Architecture**: The **Execution Planner** decides in a single grammar-constrained pass if external tools are needed. The `ToolExecutor` dispatches calls concurrently (`asyncio.gather()`) to a custom PostgreSQL MCP server (for transactions) and an official Notion MCP server (for promotions), merging results with RAG context into the synthesis LLM.
+* **Performance**: Across **11 test scenarios**, the planner achieved **90.9% (10/11 cases) accuracy** in tool selection and routing. The only failure occurred on the query *"Can you show me my recent purchase history?"*, where the llm explained how to find history rather than used database records via MCP.
+* **Trade-Offs**: MCP extends system capability to live databases and dynamic CMS data, but introduces extra architectural complexity and execution latency (e.g., database connection timeouts).
+* **Future Scaling**: Exposing all tool schemas directly to the planner works for small sets, but clutters context windows at scale. The future roadmap includes a **Tool Retrieval** layer to dynamically retrieve and bind only the most relevant tools before planning, keeping decoding fast and context efficient.
+
+---
+
 ## 🔍 Observability
 
 The Streamlit dashboard provides real-time slider controls for the **Scope**, **FAQ**, and **Retrieval** thresholds, interactive bar charts of similarity scores against intent clusters, and raw JSON output from the execution planner. Optionally, set `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` in `.env` to enable full execution trace logging across every routing phase.

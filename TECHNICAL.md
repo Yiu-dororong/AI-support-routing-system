@@ -1,6 +1,6 @@
 # Technical Documentation: Support Routing & Retrieval Internals
 
-This document details the underlying engineering designs, ingestion methodologies, search algorithms, access control protocols, performance optimization patterns, and evaluation frameworks of the AI Support Routing System.
+This document details the underlying engineering designs, ingestion methodologies, search algorithms, access control protocols, performance optimization patterns, and evaluation frameworks of the AI Support Routing System. For MCP, please see [MCP extension](#mcp-extension) below.
 
 ---
 
@@ -206,3 +206,44 @@ To evaluate the quality of generated responses, RAGAS evaluation (LLM Judge: `ge
 * **Cross-encoder reranking introduces latency under high load**: Evaluating query-context pairs simultaneously requires substantial computational budget. To maintain scalability under high load, candidate depth must be restricted prior to cross-encoding, reducing evaluation pools to cap execution time.
 * **Evaluation dataset may not fully represent production query distribution**: Ground-truth test suites contain pre-engineered query-response pairs, which can fail to capture real-world drift, user syntax variance, or conversational follow-ups.
 * **Demo-Constrained Knowledge Base**: The underlying knowledge base is constructed strictly for demonstration purposes, utilizing a mixture of public and synthetically generated data. Consequently, the retrieval corpus may contain factual inconsistencies, outdated information, or logical gaps that do not reflect a production enterprise data environment.
+
+---
+
+## MCP Extension 
+
+### Architecture Overview
+The MCP extension augments the hybrid RAG pipeline with live, structured data lookups while preserving the two-LLM architecture:
+* **Separation of Sources**: Static company documentation is retrieved from ChromaDB, while transactional database records and operational CMS schedules are fetched from external MCP servers.
+* **Concurrent Execution**: ChromaDB document retrieval and MCP tool dispatching run in parallel via `asyncio.gather()` to minimize request latency.
+* **Single-Pass Planning**: The Execution Planner determines both the routing path and the target tool calls in a single inference pass.
+* **Response Synthesis**: Combines retrieved RAG documents and structured JSON tool outputs (or connection error/timeout contexts) as separate, distinct prompt sections. On tool failure, the LLM is instructed to politely refuse that portion of the query, mask internal details, use successful outputs/documents, and append the RAG disclaimer: *"I can only answer questions based on the retrieved documents."*
+
+### Tool Execution (MCP)
+Managed by a persistent `MCPServicesContainer` initialized at startup. Registered business-level tools are mapped to their respective MCP servers via a `ToolRegistry`, keeping vendor-specific details hidden from the planner:
+* **Custom PostgreSQL MCP Server**: Exposes transactional database lookups.
+* **Official Notion MCP Server**: Exposes operational promo dates and marketing calendars.
+* **Abstract Toolset**: The planner reasons over business capabilities (`get_order_details`, `get_customer_profile`, `get_event_details`, `search_events`) rather than direct database/API queries.
+* **Concurrency**: Independent tool calls are dispatched in parallel via `asyncio.gather()`.
+
+```text
+Execution Planner ───> ToolExecutor ───> asyncio.gather()
+                                                │
+                                        ┌───────┴───────┐
+                                        ▼               ▼
+                                   PostgreSQL        Notion
+                                   MCP Server      MCP Server
+                                        │               │
+                                        └───────┬───────┘
+                                                ▼
+                                     Structured Tool Results
+                                                ▼
+                                       Response Synthesis
+```
+
+### Evaluation & Results
+To verify correct tool execution, path routing, and synthesis grounding, a suite of [11 test cases](data/mcp_test_scenarios.json) was evaluated. The results can be found in the [report](data/mcp_test_scenarios_report.md). The planner selected the correct routing path and tool set in **10 out of 11 cases (90.9%)**; scenarios testing Postgres transaction lookups, Notion promo searches, concurrent calls, and simulated timeouts all executed successfully. For a breakdown of the single failed case, see *Intent Ambiguity* below.
+
+### Limitations & Trade-offs
+* **Tool Scaling**: Exposing all tool schemas directly to the planner increases prompt size and decoding time. **Future roadmap**: Introduce a **Tool Retriever** layer to dynamically bind only the top-$k$ relevant tools.
+* **Intent Ambiguity**: Ambiguity between instruction-seeking (RAG) and data-seeking (MCP) queries (e.g., *"Can you show me my recent purchase history?"*) can cause planner misrouting. Refining the query with explicit data-seeking terminology (e.g., *"What is my current loyalty points balance and the name on my profile?"*) achieves 100% routing success. Future prompt boundaries will enforce this distinction dynamically.
+* **Trade-offs**: MCP adds architectural complexity and network latency. In exchange, the system gains critical access to live transactional and operational data that cannot be indexed semantically.

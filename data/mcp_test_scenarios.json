@@ -87,7 +87,7 @@
     "customer_id": null,
     "expected_path": "rag_llm",
     "expected_tools": ["get_customer_profile"],
-    "expected_synthesis_keywords": ["unauthorized"]
+    "expected_synthesis_keywords": ["failed"]
   },
   {
     "id": 11,

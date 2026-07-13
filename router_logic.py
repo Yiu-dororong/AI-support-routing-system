@@ -40,6 +40,9 @@ load_dotenv()
 
 class SupportRouter:
     def __init__(self, chroma_path: str | None = None):
+        import logging
+
+        logging.getLogger("httpx").setLevel(logging.WARNING)
         chroma_path = chroma_path or CHROMA_PATH
         # Download SentenceTransformer model weights to local embeddings/ folder
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -174,7 +177,8 @@ class SupportRouter:
                         print("Local server is ready!", flush=True)
                         break
                 except Exception:
-                    time.sleep(1)
+                    pass
+                time.sleep(1)
 
         # Register cleanup handler
         if (

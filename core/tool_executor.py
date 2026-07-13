@@ -228,21 +228,6 @@ async def execute_get_customer_profile(
     return {"error": "Unauthorized session or customer profile not found."}
 
 
-@registry.register(
-    ToolName.search_events,
-    server=notion_server,
-    description=(
-        "Search promotions and operational events by keyword. "
-        "Use to discover whether an event exists or find a matching event name. "
-        "For full event terms and policies, use get_event_details."
-    ),
-    query_description=(
-        "Keywords to search for "
-        "(e.g. 'Black Friday', 'referral', 'double points')."
-    ),
-)
-
-
 def _mock_search_events(query: str | None) -> list[dict]:
     """Fallback search against local mock events."""
 
@@ -276,6 +261,19 @@ def _mock_search_events(query: str | None) -> list[dict]:
     return matches
 
 
+@registry.register(
+    ToolName.search_events,
+    server=notion_server,
+    description=(
+        "Search promotions and operational events by keyword. "
+        "Use to discover whether an event exists or find a matching event name. "
+        "Do NOT call this tool if the query mentions a specific campaign "
+        "or event name; use get_event_details instead."
+    ),
+    query_description=(
+        "Keywords to search for (e.g. 'sale', 'referral', 'points')."
+    ),
+)
 async def execute_search_events(
     query: str | None,
     context: dict[str, Any],
@@ -294,7 +292,8 @@ async def execute_search_events(
 
     if event_service:
         try:
-            return await event_service.search_events(keyword=query or "")
+            # Query empty string to retrieve everything from the live Notion database
+            return await event_service.search_events(keyword="")
         except Exception:
             logger.exception(
                 "EventService search failed. Falling back to mock events."
@@ -307,7 +306,9 @@ async def execute_search_events(
     server=notion_server,
     description=(
         "Retrieve complete mechanics of a known event, including discount terms, "
-        "applicable categories, promo codes, and return policies."
+        "applicable categories, promo codes, and return policies. "
+        "Use this tool whenever a specific campaign, promotion, or "
+        "event name is mentioned."
     ),
     query_description=(
         "The exact event title (e.g. 'Spring Promo Sale 2026', "
@@ -332,7 +333,7 @@ async def execute_get_event_details(
 
     # Fallback to mock data
     for ev in MOCK_EVENTS:
-        if query.lower() in ev["title"].lower():
+        if ev["title"].lower() in query.lower() or query.lower() in ev["title"].lower():
             return {
                 "title": ev["title"],
                 "properties": ev["properties"],

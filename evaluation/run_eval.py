@@ -24,8 +24,6 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 
-
-
 def main():
     print(
         "Initializing SupportRouter (starting local llama-server if needed)...",
@@ -195,7 +193,7 @@ def main():
             "failures_count": len(failures),
             "failures": failures,
         },
-        "ragas": None
+        "ragas": None,
     }
 
     # 6. RAGAS Semantic Evaluation (optional, if key and packages are present)
@@ -214,8 +212,9 @@ def main():
             # By default it will use model & batch size from environment vars
             # (RAGAS_LLM_MODEL, RAGAS_BATCH_SIZE)
             ragas_result = run_ragas_evaluation(ragas_samples)
-            import dataclasses  # noqa: PLC0415
-            import json  # noqa: PLC0415
+            import dataclasses
+            import json
+
             ragas_dict = dataclasses.asdict(ragas_result)
             report["ragas"] = ragas_dict
             print("\nRAGAS Evaluation Results (JSON):", flush=True)
@@ -225,8 +224,9 @@ def main():
         print("=" * 50, flush=True)
 
     # Save complete report to a JSON file
-    import json  # noqa: PLC0415
-    from datetime import datetime  # noqa: PLC0415
+    import json
+    from datetime import datetime
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = os.path.join("data", "eval")
     os.makedirs(output_dir, exist_ok=True)

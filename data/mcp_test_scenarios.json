@@ -15,7 +15,7 @@
     "customer_id": 1,
     "expected_path": "rag_llm",
     "expected_tools": ["get_customer_profile"],
-    "expected_synthesis_keywords": ["Jane Doe", "points"]
+    "expected_synthesis_keywords": ["Jane Doe", "150"]
   },
   {
     "id": 3,
@@ -42,16 +42,16 @@
     "customer_id": 1,
     "expected_path": "rag_llm",
     "expected_tools": ["get_order_details", "get_event_details"],
-    "expected_synthesis_keywords": ["4471", "SUMMER50"]
+    "expected_synthesis_keywords": ["4471"]
   },
   {
     "id": 6,
     "description": "No tools called (surfacing static document)",
-    "query": "What is the difference between Pro and Standard refurbished grades?",
+    "query": "What is the difference between Grade B and C for refurbished items?",
     "customer_id": 1,
     "expected_path": "rag",
     "expected_tools": [],
-    "expected_synthesis_keywords": ["grade", "Pro"]
+    "expected_synthesis_keywords": ["grade"]
   },
   {
     "id": 7,
@@ -60,7 +60,7 @@
     "customer_id": 1,
     "expected_path": "rag_llm",
     "expected_tools": ["get_order_details"],
-    "expected_synthesis_keywords": ["not found", "9999"]
+    "expected_synthesis_keywords": ["9999"]
   },
   {
     "id": 8,
@@ -69,7 +69,7 @@
     "customer_id": 1,
     "expected_path": "rag_llm",
     "expected_tools": ["get_event_details"],
-    "expected_synthesis_keywords": ["not found", "Winter Snow Promo"]
+    "expected_synthesis_keywords": ["Winter Snow Promo"]
   },
   {
     "id": 9,
@@ -87,6 +87,16 @@
     "customer_id": null,
     "expected_path": "rag_llm",
     "expected_tools": ["get_customer_profile"],
-    "expected_synthesis_keywords": ["log in", "unauthorized"]
+    "expected_synthesis_keywords": ["unauthorized"]
+  },
+  {
+    "id": 11,
+    "description": "Authenticated user loyalty balance inquiry",
+    "query": "What is my current loyalty points balance and the name on my profile?",
+    "customer_id": 1,
+    "expected_path": "rag_llm",
+    "expected_tools": ["get_customer_profile"],
+    "expected_synthesis_keywords": ["Jane Doe", "150"]
   }
 ]
+

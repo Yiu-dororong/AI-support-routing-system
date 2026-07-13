@@ -429,8 +429,6 @@ def run_ragas_evaluation(
 
         ragas_embeddings = LangchainEmbeddingsWrapper(lc_embeddings)
 
-
-
     faithfulness = Faithfulness()
     answer_relevancy = AnswerRelevancy(strictness=1)
     context_precision = ContextPrecision()
@@ -475,6 +473,7 @@ def run_ragas_evaluation(
 
         try:
             from ragas.run_config import RunConfig
+
             # Limit parallel workers to 4 to speed up evaluations
             # while staying under Gemini's 15 RPM limit
             run_config = RunConfig(max_workers=4, timeout=60, max_retries=3)
@@ -512,6 +511,7 @@ def run_ragas_evaluation(
     scores = []
     if not df.empty:
         import numpy as np
+
         for record in df.to_dict(orient="records"):
             clean_record = {}
             for k, v in record.items():
@@ -519,11 +519,21 @@ def run_ragas_evaluation(
                     # Convert to list and clean elements
                     lst = v.tolist() if isinstance(v, np.ndarray) else v
                     clean_record[k] = [
-                        (None if (item is None or (
-                            isinstance(item, (float | np.floating)) and np.isnan(item)
-                            )) else
-                         float(item) if isinstance(item, (np.floating | float)) else
-                         int(item) if isinstance(item, (np.integer | int)) else item)
+                        (
+                            None
+                            if (
+                                item is None
+                                or (
+                                    isinstance(item, (float | np.floating))
+                                    and np.isnan(item)
+                                )
+                            )
+                            else float(item)
+                            if isinstance(item, (np.floating | float))
+                            else int(item)
+                            if isinstance(item, (np.integer | int))
+                            else item
+                        )
                         for item in lst
                     ]
                 elif pd.isna(v):
@@ -676,6 +686,7 @@ if __name__ == "__main__":
         print(_result.summary())
         print("\nIndividual scores:")
         import json
+
         print(json.dumps(_result.scores, indent=2))
     else:
         print()

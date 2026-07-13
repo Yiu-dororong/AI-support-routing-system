@@ -3,6 +3,7 @@ import os
 from typing import Any
 
 import numpy as np
+from dotenv import load_dotenv
 from langchain_chroma import Chroma
 from langchain_core.documents import Document as LCDocument
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -26,11 +27,15 @@ from core.faq import FAQHandler
 from core.planner import ExecutionPlanner
 from core.scope import IntentClassifier
 from core.types import RoutingDecision
+from llm import prompts
 from llm.generator import ResponseGenerator
 from rag.bm25 import BM25SearchEngine
 from rag.chroma import ChromaRetriever
 from rag.pipeline import RAGPipeline
 from rag.reranker import DocumentReranker
+
+
+load_dotenv()
 
 
 class SupportRouter:
@@ -65,8 +70,7 @@ class SupportRouter:
         from huggingface_hub import hf_hub_download
 
         print("Ensuring local execution planner model is downloaded...", flush=True)
-        llm_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                               "llm")
+        llm_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "llm")
         try:
             self.local_model_path = hf_hub_download(
                 repo_id=LLM_REPO_ID,
@@ -86,8 +90,9 @@ class SupportRouter:
             self.local_model_path = files[0] if files else None
 
         # Download reranker model weights to local reranker/ folder
-        reranker_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                    "reranker")
+        reranker_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "reranker"
+        )
         print(
             f"Ensuring reranker model is downloaded to '{reranker_dir}'...",
             flush=True,
@@ -435,12 +440,24 @@ class SupportRouter:
         # Instantiate modular components matching folder layout
         self.intent_classifier = IntentClassifier(self.intent_centroids)
         self.faq_handler = FAQHandler(self.faq_embeddings)
-        self.planner = ExecutionPlanner(self.structured_planner)
+
+        from core.tool_executor import registry
+
+        tool_descriptions = registry.get_tool_descriptions()
+        planner_system_prompt = prompts.EXECUTION_PLANNER_SYSTEM_PROMPT.format(
+            available_tools=tool_descriptions
+        )
+        # Store for warm-up use
+        self._planner_system_prompt = planner_system_prompt
+        self.planner = ExecutionPlanner(
+            self.structured_planner, system_prompt=planner_system_prompt
+        )
 
         self.chroma = ChromaRetriever(self.vector_store)
         self.bm25 = BM25SearchEngine(self.kb_documents)
-        self.reranker = DocumentReranker(model_name=self.reranker_model_path,
-                                         timeout_ms=300.0)
+        self.reranker = DocumentReranker(
+            model_name=self.reranker_model_path, timeout_ms=300.0
+        )
         self.rag_pipeline = RAGPipeline(self.chroma, self.bm25, self.reranker)
 
         self.router = Router(
@@ -473,7 +490,7 @@ class SupportRouter:
             from llm import prompts as llm_prompts
 
             dummy_messages = [
-                SystemMessage(content=llm_prompts.EXECUTION_PLANNER_SYSTEM_PROMPT),
+                SystemMessage(content=self._planner_system_prompt),
                 HumanMessage(
                     content=(
                         llm_prompts.EXECUTION_PLANNER_USER_TEMPLATE.format(
@@ -486,6 +503,57 @@ class SupportRouter:
             print("LLM model and grammar warm-up complete!", flush=True)
         except Exception as e:
             print(f"LLM warm-up warning: {e}", flush=True)
+        # Initialize MCPServicesContainer
+        import sys
+
+        project_root = os.path.dirname(os.path.abspath(__file__))
+        mcp_tools_dir = os.path.join(project_root, "mcp_tools")
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
+        if mcp_tools_dir not in sys.path:
+            sys.path.insert(0, mcp_tools_dir)
+
+        from mcp_tools.manager import MCPServicesContainer
+
+        self.mcp_container = MCPServicesContainer()
+
+        # Start persistent MCP sessions
+        try:
+            import asyncio
+
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            self.mcp_startup_task = None
+            if loop and loop.is_running():
+                # Schedule it as a task on the running loop so it stays
+                # alive in the same event loop context
+                self.mcp_startup_task = loop.create_task(self.mcp_container.start())
+            else:
+                asyncio.run(self.mcp_container.start())
+            print("MCP persistent connections initialized successfully!", flush=True)
+        except Exception as e:
+            print(
+                f"Warning: Failed to start MCP persistent connections: {e}",
+                flush=True,
+            )
+
+        # Register cleanup handler
+        import atexit
+
+        def cleanup_mcp(container):
+            try:
+                import asyncio
+
+                loop = asyncio.new_event_loop()
+                loop.run_until_complete(container.stop())
+                loop.close()
+            except Exception:
+                pass
+
+        atexit.register(cleanup_mcp, self.mcp_container)
 
         print("Initialization complete!", flush=True)
 
@@ -550,6 +618,7 @@ class SupportRouter:
         self,
         query: str,
         retrieved_docs: list[dict[str, Any]],
+        tool_results: dict | None = None,
         callbacks=None,
         metadata: dict = None,
     ) -> tuple[str, str]:
@@ -560,6 +629,7 @@ class SupportRouter:
         return self.generator.generate(
             query=query,
             retrieved_docs=retrieved_docs,
+            tool_results=tool_results,
             callbacks=callbacks,
             metadata=metadata,
         )

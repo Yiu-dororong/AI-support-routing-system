@@ -1,3 +1,4 @@
+import json
 import os
 
 from llm import prompts
@@ -17,6 +18,7 @@ class ResponseGenerator:
         self,
         query: str,
         retrieved_docs: list[dict],
+        tool_results: dict | None = None,
         callbacks=None,
         metadata: dict = None,
     ) -> tuple[str, str]:
@@ -42,20 +44,37 @@ class ResponseGenerator:
                 f"{doc['content']}\n\n"
             )
 
+        # Dynamically append tool results as structured blocks
+        friendly_tool_names = {
+            "get_order_details": "Order Details",
+            "get_customer_profile": "Customer Profile",
+            "search_events": "Event Search Results",
+            "get_event_details": "Event Details",
+        }
+        tool_context_str = ""
+        if tool_results:
+            for tool_name, result in tool_results.items():
+                display_name = friendly_tool_names.get(
+                    tool_name, tool_name.replace("_", " ").title()
+                )
+                tool_context_str += f"=== {display_name} ===\n"
+                if isinstance(result, dict) and "error" in result:
+                    tool_context_str += f"Error: {result['error']}\n\n"
+                else:
+                    tool_context_str += f"{json.dumps(result, indent=2)}\n\n"
+
         from langchain_core.messages import HumanMessage, SystemMessage
+
+        user_part = f"Retrieved Documents:\n{context_str}\n"
+        if tool_context_str:
+            user_part += f"External Tool Context:\n{tool_context_str}\n"
+        user_part += f"User Query: \"{query}\""
 
         messages = [
             SystemMessage(content=prompts.RESPONSE_SYNTHESIS_SYSTEM_PROMPT),
-            HumanMessage(
-                content=prompts.RESPONSE_SYNTHESIS_USER_TEMPLATE.format(
-                    context_str=context_str, query=query
-                )
-            ),
+            HumanMessage(content=user_part),
         ]
 
-        user_part = prompts.RESPONSE_SYNTHESIS_USER_TEMPLATE.format(
-            context_str=context_str, query=query
-        )
         prompt = (
             f"System:\n{prompts.RESPONSE_SYNTHESIS_SYSTEM_PROMPT}\n\nUser:\n{user_part}"
         )

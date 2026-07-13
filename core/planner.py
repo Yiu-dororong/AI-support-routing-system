@@ -8,8 +8,9 @@ class ExecutionPlanner:
     local structured LLM outputs. Contains no retrieval or database access.
     """
 
-    def __init__(self, structured_planner):
+    def __init__(self, structured_planner, system_prompt: str | None = None):
         self.structured_planner = structured_planner
+        self.system_prompt = system_prompt or prompts.EXECUTION_PLANNER_SYSTEM_PROMPT
 
     def plan(
         self, query: str, intent: str, callbacks=None, metadata: dict = None
@@ -20,7 +21,7 @@ class ExecutionPlanner:
         from langchain_core.messages import HumanMessage, SystemMessage
 
         messages = [
-            SystemMessage(content=prompts.EXECUTION_PLANNER_SYSTEM_PROMPT),
+            SystemMessage(content=self.system_prompt),
             HumanMessage(
                 content=prompts.EXECUTION_PLANNER_USER_TEMPLATE.format(
                     intent=intent, query=query
@@ -35,6 +36,15 @@ class ExecutionPlanner:
 
         try:
             decision = self.structured_planner.invoke(messages, config=config)
+
+            # Coerce path to 'rag_llm' defensively if tools were emitted
+            if (
+                hasattr(decision, "tools")
+                and decision.tools
+                and decision.path != "rag_llm"
+            ):
+                decision.path = "rag_llm"
+
             raw_output = decision.model_dump_json(indent=2)
             return decision, raw_output
         except Exception as e:

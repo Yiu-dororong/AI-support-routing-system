@@ -1,0 +1,32 @@
+[
+  {
+    "title": "Black Friday",
+    "properties": {
+      "Active": true,
+      "Promo Code": "BFCM2026",
+      "Discount Rate": "20% off",
+      "Date": {
+        "start": "2026-06-01",
+        "end": "2026-08-31",
+        "time_zone": null
+      }
+    },
+    "content": "# Black Friday Sale 2026\n\nWelcome to our annual Black Friday event. Here are the mechanics and policies:\n\n* **Promo Code**: BFCM2026\n* **Discount**: 20% off all refurbished products.\n* **Applicable Categories**: Refurbished phones, tablets, and laptops.\n* **Extended Return Policy**: All orders placed during this Black Friday event are eligible for our extended holiday return window. You can return any purchased item until **January 31, 2027** (instead of our standard 30-day window)."
+  },
+  {
+    "title": "Summer Referral",
+    "properties": {
+      "Active": false,
+      "Promo Code": "SUMMER50",
+      "Discount Rate": "$50 off",
+      "Date": {
+        "start": "2026-11-27",
+        "end": "2026-12-01",
+        "time_zone": null
+      }
+    },
+    "content": "# Summer Referral Program 2026\n\nInvite your friends and save:\n\n* **Referrer Reward**: Get $50 store credit for every friend who makes their first purchase.\n* **Friend Discount**: Your friend gets $50 off their first order over $200 using your unique link.\n* **Promo Code**: SUMMER50\n* **Status**: This promotion is currently inactive."
+  }
+]
+
+

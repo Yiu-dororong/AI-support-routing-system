@@ -1,0 +1,92 @@
+[
+  {
+    "id": 1,
+    "description": "Standard PostgreSQL lookup (order status)",
+    "query": "What's the status of order #4471?",
+    "customer_id": 1,
+    "expected_path": "rag_llm",
+    "expected_tools": ["get_order_details"],
+    "expected_synthesis_keywords": ["Shipped", "4471"]
+  },
+  {
+    "id": 2,
+    "description": "PostgreSQL customer profile lookup",
+    "query": "Can you show me my recent purchase history?",
+    "customer_id": 1,
+    "expected_path": "rag_llm",
+    "expected_tools": ["get_customer_profile"],
+    "expected_synthesis_keywords": ["Jane Doe", "points"]
+  },
+  {
+    "id": 3,
+    "description": "Notion event search",
+    "query": "Are there any active sales or promotional discount events right now?",
+    "customer_id": 1,
+    "expected_path": "rag_llm",
+    "expected_tools": ["search_events"],
+    "expected_synthesis_keywords": ["Black Friday"]
+  },
+  {
+    "id": 4,
+    "description": "Notion event details fetch",
+    "query": "What are the terms of the Summer Referral Campaign?",
+    "customer_id": 1,
+    "expected_path": "rag_llm",
+    "expected_tools": ["get_event_details"],
+    "expected_synthesis_keywords": ["SUMMER50", "$50"]
+  },
+  {
+    "id": 5,
+    "description": "Multi-source PostgreSQL + Notion concurrent tool calling",
+    "query": "I bought order #4471 during the Summer Referral Campaign. How many points did I earn?",
+    "customer_id": 1,
+    "expected_path": "rag_llm",
+    "expected_tools": ["get_order_details", "get_event_details"],
+    "expected_synthesis_keywords": ["4471", "SUMMER50"]
+  },
+  {
+    "id": 6,
+    "description": "No tools called (surfacing static document)",
+    "query": "What is the difference between Pro and Standard refurbished grades?",
+    "customer_id": 1,
+    "expected_path": "rag",
+    "expected_tools": [],
+    "expected_synthesis_keywords": ["grade", "Pro"]
+  },
+  {
+    "id": 7,
+    "description": "PostgreSQL miss (order ID does not exist)",
+    "query": "What's the status of order #9999?",
+    "customer_id": 1,
+    "expected_path": "rag_llm",
+    "expected_tools": ["get_order_details"],
+    "expected_synthesis_keywords": ["not found", "9999"]
+  },
+  {
+    "id": 8,
+    "description": "Notion miss (non-existent promo campaign)",
+    "query": "What is the return policy for the Winter Snow Promo?",
+    "customer_id": 1,
+    "expected_path": "rag_llm",
+    "expected_tools": ["get_event_details"],
+    "expected_synthesis_keywords": ["not found", "Winter Snow Promo"]
+  },
+  {
+    "id": 9,
+    "description": "Concurrent execution with simulated Notion timeout",
+    "query": "Check order #4471 and tell me if it qualifies for any active campaign.",
+    "customer_id": 1,
+    "expected_path": "rag_llm",
+    "expected_tools": ["get_order_details", "search_events"],
+    "expected_synthesis_keywords": ["4471"]
+  },
+  {
+    "id": 10,
+    "description": "Unauthenticated user session profile inquiry",
+    "query": "Show my account details.",
+    "customer_id": null,
+    "expected_path": "rag_llm",
+    "expected_tools": ["get_customer_profile"],
+    "expected_synthesis_keywords": ["log in", "unauthorized"]
+  }
+]

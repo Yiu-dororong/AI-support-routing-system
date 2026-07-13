@@ -349,6 +349,9 @@ def process_query(query_text: str, status=None):
         "reason": decision.reason,
         "clarification_question": decision.clarification_question,
         "refusal_message": decision.refusal_message,
+        "tools": [t.model_dump() for t in decision.tools]
+        if hasattr(decision, "tools")
+        else [],
         "raw_response": planner_raw,
     }
 
@@ -444,11 +447,68 @@ def process_query(query_text: str, status=None):
         st.session_state.last_query_trace = trace
 
     elif decision.path == "rag_llm":
-        # Complex query -> RAG + LLM synthesis
-        if not retrieved_docs:
+        # Complex query -> RAG + LLM synthesis + Tools
+        tool_results = None
+        if hasattr(decision, "tools") and decision.tools:
             if status:
                 status.update(
-                    label="⚠️ Retrieval found no documents. Falling back.",
+                    label="[4.5/5] Executing external tool calls...",
+                    state="running",
+                )
+
+            # import ToolExecutor & run_async_safely
+            import asyncio
+            import concurrent.futures
+
+            from core.tool_executor import ToolExecutor, registry
+
+            def run_async_safely(coro):
+                """Runs an async coroutine safely whether or not
+                an event loop is already running."""
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = None
+
+                if loop and loop.is_running():
+                    # Streamlit has a running loop
+                    # dispatch to a thread with its own loop
+                    with concurrent.futures.ThreadPoolExecutor() as thread_pool:
+                        future = thread_pool.submit(asyncio.run, coro)
+                        return future.result()
+                else:
+                    return asyncio.run(coro)
+
+            # customer_id from Streamlit session state.
+            # In test scope this is hardcoded to 1 (Jane Doe).
+            # Replace with real auth token / user ID in production.
+            customer_id = st.session_state.get("customer_id", 1)
+
+            # Extract service container from router
+            order_service = None
+            event_service = None
+            if hasattr(router, "mcp_container") and router.mcp_container:
+                order_service = router.mcp_container.order_service
+                event_service = router.mcp_container.event_service
+
+            tool_executor = ToolExecutor(registry=registry, timeout_seconds=3.0)
+            tool_results = run_async_safely(
+                tool_executor.run_calls(
+                    decision.tools,
+                    session_context={
+                        "customer_id": customer_id,
+                        "order_service": order_service,
+                        "event_service": event_service,
+                    },
+                )
+            )
+            trace["tool_results"] = tool_results
+
+        # Keep fallback check: if no retrieved docs AND no tool results
+        if not retrieved_docs and not tool_results:
+            if status:
+                status.update(
+                    label="⚠️ Retrieval found no documents or tools. Falling back.",
                     state="complete",
                     expanded=False,
                 )
@@ -464,8 +524,9 @@ def process_query(query_text: str, status=None):
                 )
 
             raw_answer, raw_prompt = router.run_response_generation(
-                query_text,
-                retrieved_docs,
+                query=query_text,
+                retrieved_docs=retrieved_docs,
+                tool_results=tool_results,
                 callbacks=[langfuse_handler] if langfuse_handler else None,
                 metadata=lf_metadata,
             )
@@ -476,6 +537,9 @@ def process_query(query_text: str, status=None):
                     t = doc["metadata"]["title"]
                     c = doc["similarity"]
                     sources_md += f"- **{t}** *(Similarity Confidence: {c:.2f})*\n"
+                if tool_results:
+                    for tool_name, result in tool_results.items():
+                        sources_md += f"- **Tool: {tool_name}** *(Live fetched)*\n"
                 answer = answer + sources_md
 
             trace["response"] = {
@@ -756,6 +820,10 @@ with tab_trace:
             if refusal_msg:
                 st.warning(f'Refusal Message: "{refusal_msg}"')
 
+            if "tools" in planner_data and planner_data["tools"]:
+                st.markdown("**Tools Requested:**")
+                st.json(planner_data["tools"])
+
             if planner_data.get("raw_response"):
                 st.markdown("**Raw LLM Output:**")
                 st.code(planner_data["raw_response"], language="json")
@@ -779,6 +847,16 @@ with tab_trace:
                     f"(Distance: `{doc['distance']:.4f}`)  \n**Content:**"
                 )
                 st.info(doc["content"])
+
+        # [3.5] External Tool Execution details
+        with st.expander(
+            "🔍 [3.5] External Tool Execution (Context Stitch)", expanded=True
+        ):
+            if "tool_results" in trace and trace["tool_results"]:
+                st.markdown("**Tool Results Received:**")
+                st.json(trace["tool_results"])
+            else:
+                st.info("No external tools were executed for this query.")
 
         # [4] Response Generation details
         with st.expander("🔍 [4] Response Generation / Synthesis", expanded=True):

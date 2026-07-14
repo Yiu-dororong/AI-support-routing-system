@@ -155,6 +155,8 @@ While a hybrid RAG pipeline retrieves stable documentation (FAQs, guides) effect
 * **Trade-Offs**: MCP extends system capability to live databases and dynamic CMS data, but introduces extra architectural complexity and execution latency (e.g., database connection timeouts).
 * **Future Scaling**: Exposing all tool schemas directly to the planner works for small sets, but clutters context windows at scale. The future roadmap includes a **Tool Retrieval** layer to dynamically retrieve and bind only the most relevant tools before planning, keeping decoding fast and context efficient.
 
+*Note: If you do not configure the PostgreSQL database and Notion token, it will automatically run in Demo mode using mock data.*
+
 ---
 
 ## 🔍 Observability
@@ -168,6 +170,7 @@ The Streamlit dashboard provides real-time slider controls for the **Scope**, **
 1. **Semantic Cache**: Add a Redis cache ahead of the Scope Filter to short-circuit repeated queries at zero compute cost.
 2. **Specialized Router Model**: Replace the 2B LLM planner with a fine-tuned BERT classifier for sub-10ms routing latency.
 3. **Stateful Conversations**: Append conversation history to prompts for multi-turn support, with KV-cache pruning or sliding-window context management.
+4. **Dedicated Tool Retrieval layer**: Implement a hierarchical selection approach (choose scope first, then pick specific tools) to dynamically bind only the relevant tool definitions to the planner context, minimizing context window bloat and accelerating inference.
 
 ---
 

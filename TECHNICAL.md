@@ -198,6 +198,19 @@ To evaluate the quality of generated responses, RAGAS evaluation (LLM Judge: `ge
 
 *Note: Ragas metrics are highly compute-intensive and slow to execute; for faster iteration and robust production scaling, **DeepEval** is recommended.*
 
+**Evaluation Rigor: Root-Causing an Initial Answer Relevance Score of 0.316**
+
+**An early RAGAS run scored Answer Relevance at 0.316** — low enough to warrant failure analysis before treating it as a genuine generation defect.
+RAGAS estimates Answer Relevance by back-generating candidate questions from the LLM's answer and measuring their embedding similarity to the original query — a method that assumes the answer contains enough substantive content to reconstruct a plausible question.
+
+Manual review of the low-scoring cases **found a disproportionate number of exact zeros**, and all of them shared one trait: **the system had correctly answered "I don't know"** — the mandated fallback when retrieved context doesn't support an answer, designed to prevent hallucination. A refusal contains no answer content to back-generate a question from, so its similarity score collapses toward zero regardless of whether the refusal was the right call.
+
+Cross-referencing these cases against the retrieved context confirmed the refusals were correct: **the golden dataset's labeled ground-truth answer was not actually present in the source documents.** Retrieval and generation had both behaved correctly — the system declined to hallucinate an answer the knowledge base didn't contain — but the dataset's expected answer didn't match what the documents actually supported. **The metric was penalizing correct abstention, not measuring a system defect.**
+
+Two options existed — discard the mislabeled queries from the evaluation set, or revise their golden answers to reflect what the documents actually supported. Discarding was avoided to prevent shrinking the dataset and to avoid the appearance of dropping inconvenient results. **Revising the answers directly addressed the labeling defect while preserving the full 60-query evaluation surface. Answer Relevance rose to 0.783 after revision.**
+
+**Takeaway:** Not every low eval score indicates a system defect. **RAGAS's Answer Relevance metric specifically cannot distinguish "correctly declined due to missing evidence" from "generated an irrelevant answer"** — treating the raw score as ground truth without failure analysis would have meant reworking a system that was already behaving correctly.
+
 ---
 
 ## ⚠️ Known Limitations

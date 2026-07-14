@@ -120,7 +120,7 @@ Generating reasoning tokens (Gemma's `<thought>` block) is compute-heavy. This p
 </details>
 
 ### 3. Model Warm-up
-Because `llama-server` compiles JSON grammar syntax trees lazily on the first incoming request, the initial query faces a **~9.46s cold start**. The startup routine executes a dummy query during system initialization to warm up model weights and JSON parsing state, **reducing first-query latency to 5.01s** (a 4.5s speedup).
+Because `llama-server` compiles JSON grammar syntax trees lazily on the first incoming request, the initial query faces a **~9.46s cold start**. The startup routine executes a dummy query during system initialization to warm up model weights and JSON parsing state, **reducing first-query latency to 5.01s** (a 4.5s speedup). This also applies to reranker.
 
 ---
 
@@ -194,7 +194,7 @@ To evaluate the quality of generated responses, RAGAS evaluation (LLM Judge: `ge
 | Context Precision | 0.857 |
 | Answer Relevance | 0.783 |
 
-**Evaluation limitation:** The `rag_llm` evaluation contains only 7 test cases, so individual examples have a significant impact on the aggregate scores. In addition, **generation metrics (Faithfulness and Answer Relevance) are inherently dependent on the underlying model and prompt configuration**. These results were obtained using `Gemma-4-2B` with thinking disabled and should be interpreted as a baseline measurement of the local synthesis capability rather than a standalone measure of the routing architecture.
+**Evaluation limitation:** The `rag_llm` evaluation contains only 7 test cases, so individual examples have a significant impact on the aggregate scores. In addition, **generation metrics (Faithfulness and Answer Relevance) are inherently dependent on the underlying model and prompt configuration**. These results were obtained using `Gemma-4-E2B` with thinking disabled and should be interpreted as a baseline measurement of the local synthesis capability rather than a standalone measure of the routing architecture.
 
 *Note: Ragas metrics are highly compute-intensive and slow to execute; for faster iteration and robust production scaling, **DeepEval** is recommended.*
 

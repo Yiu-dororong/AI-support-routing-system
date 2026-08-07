@@ -335,15 +335,33 @@ class SupportRouter:
                     flush=True,
                 )
                 import glob
+                import logging
 
+                logging.getLogger("docling").setLevel(logging.ERROR)
+
+                from docling.datamodel.base_models import InputFormat
+                from docling.datamodel.pipeline_options import PdfPipelineOptions
+                from docling.document_converter import (
+                    DocumentConverter,
+                    PdfFormatOption,
+                )
                 from langchain_docling import DoclingLoader
+
+                docling_opts = PdfPipelineOptions(do_ocr=False)
+                docling_converter = DocumentConverter(
+                    format_options={
+                        InputFormat.PDF: PdfFormatOption(pipeline_options=docling_opts)
+                    }
+                )
 
                 pdf_folder = os.path.join(DATA_DIR, "documents")
                 pdf_files = glob.glob(os.path.join(pdf_folder, "*.pdf"))
 
                 kb_docs = []
                 for pdf_file in pdf_files:
-                    loader = DoclingLoader(file_path=pdf_file)
+                    loader = DoclingLoader(
+                        file_path=pdf_file, converter=docling_converter
+                    )
                     pages = loader.load()
 
                     doc_title = None

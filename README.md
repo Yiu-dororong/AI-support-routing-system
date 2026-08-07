@@ -4,19 +4,19 @@
 
 > **Notice**: Demo runs against a synthetic e-commerce dataset ([Kaggle FAQ set](https://www.kaggle.com/datasets/saadmakhdoom/ecommerce-faq-chatbot-dataset) + generated company docs) — built to demonstrate the routing/retrieval architecture, not a real business.
 
----
-
-Rather than routing every query through an LLM, this system applies **progressive escalation**: queries are resolved at the cheapest possible stage—scope filtering, FAQ lookup, or direct document retrieval—before invoking generative synthesis. The retrieval layer uses a production-grade hybrid search pipeline (BM25 + ChromaDB + RRF + Cross-Encoder re-ranking) with metadata role filters to prevent internal policy leakage.
-
 <p align="center">
     <kbd>
         <img width="1516" height="1086" alt="frontend_sample" src="https://github.com/user-attachments/assets/fa8d541b-a6be-4f87-8180-769aaabf61a2" />
     </kbd>
 </p>
 
+🔴 **[Live Demo](https://ai-support-routing-system-fox.streamlit.app/)** &nbsp;&nbsp;|&nbsp;&nbsp; 📄 **[Technical Documentation](TECHNICAL.md)**
+
 ---
 
 ## 🎯 Design Principles
+
+Rather than routing every query through an LLM, this system applies **progressive escalation**: queries are resolved at the cheapest possible stage—scope filtering, FAQ lookup, or direct document retrieval—before invoking generative synthesis. The retrieval layer uses a production-grade hybrid search pipeline (BM25 + ChromaDB + RRF + Cross-Encoder re-ranking) with metadata role filters to prevent internal policy leakage.
 
 * **Deterministic Before Probabilistic**: Scope filtering and FAQ lookup resolve the majority of repetitive queries in under 20ms at zero token cost—LLM inference is reserved for requests that genuinely require it. *Risk: static similarity thresholds can misclassify edge-case queries as out-of-scope.*
 * **Hybrid Search for Alphanumerics**: Pure vector embeddings degrade silently on exact alphanumeric strings—a query for `VT-Titan_XL-99` may semantically match the wrong document with no error signal. BM25 alongside dense retrieval catches what embeddings miss.

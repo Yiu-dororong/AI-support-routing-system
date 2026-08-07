@@ -534,7 +534,8 @@ class SupportRouter:
         except Exception as e:
             print(f"Reranker warm-up warning: {e}", flush=True)
 
-        # Warm up the LLM if using local llama-server to trigger model loading and grammar compilation
+        # Warm up the LLM if using local llama-server
+        # to trigger model loading and grammar compilation
         if use_local_llm:
             try:
                 print("Warming up local LLM model and compiling grammar...", flush=True)
@@ -574,7 +575,8 @@ class SupportRouter:
 
         # MCP Services container ready
         # If an event loop is currently running, pre-warm connections in that loop.
-        # Otherwise, MCPClientManager will connect lazily on demand when a tool is invoked.
+        # Otherwise, MCPClientManager will connect lazily on demand
+        # when a tool is invoked.
         try:
             import asyncio
 
@@ -586,9 +588,11 @@ class SupportRouter:
             self.mcp_startup_task = None
             if loop and loop.is_running():
                 self.mcp_startup_task = loop.create_task(self.mcp_container.start())
-                print("MCP persistent connections initialized in active loop!", flush=True)
+                print("MCP persistent connections initialized in active loop!",
+                      flush=True)
             else:
-                print("MCP services container ready (will connect lazily on demand).", flush=True)
+                print("MCP services container ready (will connect lazily on demand).",
+                      flush=True)
         except Exception as e:
             print(
                 f"Warning: Failed to initialize MCP services container: {e}",

@@ -1,13 +1,12 @@
 import asyncio
 import logging
 import os
+import sys
 from contextlib import AsyncExitStack
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-
-import sys
 
 logger = logging.getLogger("mcp_client_manager")
 
@@ -87,9 +86,6 @@ class MCPClientManager:
                 logger.info("Stopping MCP client session.")
                 try:
                     await self._exit_stack.aclose()
-                except BaseExceptionGroup:
-                    # anyio task group errors during stdio_client teardown — safe to ignore
-                    pass
                 except (RuntimeError, Exception) as e:
                     logger.debug(f"MCP client shutdown warning (ignored): {e}")
                 finally:

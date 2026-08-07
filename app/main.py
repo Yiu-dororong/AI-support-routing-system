@@ -906,7 +906,8 @@ with tab_kb:
 
             st.markdown(f"**{category_title}** (`{intent_key}`) — {desc}")
             if examples:
-                with st.expander(f"View {len(examples)} example queries for {category_title}"):
+                with st.expander(f"""View {len(examples)} example queries
+                                    for {category_title}"""):
                     for ex in examples:
                         st.markdown(f"- *\"{ex}\"*")
             st.markdown("---")
@@ -915,9 +916,9 @@ with tab_kb:
     st.markdown("### ❓ Curated FAQ Dataset")
     st.markdown(
         "Source dataset: **[Kaggle E-commerce FAQ Chatbot Dataset]"
-        "(https://www.kaggle.com/datasets/saadmakhdoom/ecommerce-faq-chatbot-dataset)**  \n"
-        "These high-frequency FAQ query/answer pairs are pre-indexed into ChromaDB for direct "
-        "deterministic bypass resolution."
+        "(https://www.kaggle.com/datasets/saadmakhdoom/ecommerce-faq-chatbot-dataset)**"
+        "  \nThese high-frequency FAQ query/answer pairs are pre-indexed into"
+        " ChromaDB for direct deterministic bypass resolution."
     )
     st.markdown("---")
 

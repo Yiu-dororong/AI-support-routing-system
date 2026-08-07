@@ -12,8 +12,12 @@ class BM25SearchEngine:
         self.raw_docs = (
             documents  # list of {"id": doc_id, "content": text, "metadata": meta}
         )
-        self.corpus = [tokenize(doc["content"]) for doc in documents]
-        self.bm25 = BM25Okapi(self.corpus)
+        self.corpus = [tokenize(doc["content"]) for doc in documents
+                       if doc.get("content")]
+        if self.corpus:
+            self.bm25 = BM25Okapi(self.corpus)
+        else:
+            self.bm25 = None
 
     def search(
         self, query: str, user_role: str = "customer", n_results: int = 15
@@ -22,6 +26,9 @@ class BM25SearchEngine:
         Retrieves matching documents based on BM25 lexical scores,
         with role-based filtering.
         """
+        if not self.bm25 or not self.raw_docs:
+            return []
+
         tokenized_query = tokenize(query)
         scores = self.bm25.get_scores(tokenized_query)
 

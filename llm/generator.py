@@ -22,8 +22,8 @@ class ResponseGenerator:
         callbacks=None,
         metadata: dict = None,
     ) -> tuple[str, str]:
-        if not self.local_model_path or not os.path.exists(self.server_exe):
-            # Fallback if local model/binary is missing
+        if not self.synthesis_llm:
+            # Fallback if synthesis model is unavailable
             fallback_resp = prompts.LLM_UNAVAILABLE_FALLBACK_HEADER
             for doc in retrieved_docs:
                 fallback_resp += (
@@ -33,7 +33,7 @@ class ResponseGenerator:
                 )
             return (
                 fallback_resp,
-                "Local model not initialized. Surfaced retrieved documents directly.",
+                "LLM model not initialized. Surfaced retrieved documents directly.",
             )
 
         # Prepare context from retrieved documents

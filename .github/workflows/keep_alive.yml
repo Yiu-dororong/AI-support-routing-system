@@ -1,0 +1,29 @@
+name: Wake Streamlit App
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"      
+  workflow_dispatch:
+
+jobs:
+  wake-app:
+    runs-on: ubuntu-latest
+
+    env:
+      STREAMLIT_APP_URL: ${{ secrets.STREAMLIT_APP_URL }}
+
+    steps:
+      - name: Checkout Code Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Automation Package Requirements
+        run: |
+          pip install selenium
+
+      - name: Execute Headless Keep-Alive Check
+        run: python wake_app.py

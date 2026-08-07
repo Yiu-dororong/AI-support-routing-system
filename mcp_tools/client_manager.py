@@ -7,7 +7,24 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 
+import sys
+
 logger = logging.getLogger("mcp_client_manager")
+
+
+def _safe_asyncgen_finalizer(gen):
+    # Intentional no-op: attempting to close the MCP stdio_client asyncgen
+    # from outside its originating task causes anyio to raise:
+    #   RuntimeError: Attempted to exit cancel scope in a different task
+    # We discard the generator without touching it — the process exit will
+    # clean up all file descriptors anyway.
+    pass
+
+
+try:
+    sys.set_asyncgen_hooks(finalizer=_safe_asyncgen_finalizer)
+except Exception:
+    pass
 
 
 class MCPClientManager:
@@ -70,7 +87,10 @@ class MCPClientManager:
                 logger.info("Stopping MCP client session.")
                 try:
                     await self._exit_stack.aclose()
-                except BaseException as e:
+                except BaseExceptionGroup:
+                    # anyio task group errors during stdio_client teardown — safe to ignore
+                    pass
+                except (RuntimeError, Exception) as e:
                     logger.debug(f"MCP client shutdown warning (ignored): {e}")
                 finally:
                     self._exit_stack = None

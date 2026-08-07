@@ -19,19 +19,61 @@ sys.path.insert(0, project_root)
 load_dotenv(dotenv_path=os.path.join(project_root, ".env"))
 
 
+def get_connection():
+    use_local_str = os.environ.get("USE_LOCAL_DB", "true").lower().strip()
+    use_local = use_local_str in ("true", "1", "yes")
+
+    if use_local:
+        host = os.environ.get("DB_HOST", "127.0.0.1")
+        port = os.environ.get("DB_PORT", "5432")
+        dbname = os.environ.get("DB_NAME", "postgres")
+        user = os.environ.get("DB_USER", "postgres")
+        password = os.environ.get("DB_PASSWORD", "postgres")
+
+        logger.info(f"""Connecting to LOCAL database {dbname}
+                        on {host}:{port} as {user}...""")
+        return psycopg.connect(
+            host=host,
+            port=port,
+            dbname=dbname,
+            user=user,
+            password=password,
+            connect_timeout=2,
+            sslmode="disable",
+        )
+    else:
+        conn_url = os.environ.get("SUPABASE_DB_URL") or os.environ.get("DATABASE_URL")
+        if conn_url:
+            logger.info("Connecting to SUPABASE cloud database via connection URI...")
+            return psycopg.connect(conn_url, connect_timeout=10, sslmode="require")
+        else:
+            host = os.environ.get("SUPABASE_DB_HOST",
+                                  os.environ.get("DB_HOST"))
+            port = os.environ.get("SUPABASE_DB_PORT",
+                                  os.environ.get("DB_PORT", "5432"))
+            dbname = os.environ.get("SUPABASE_DB_NAME",
+                                    os.environ.get("DB_NAME", "postgres"))
+            user = os.environ.get("SUPABASE_DB_USER",
+                                  os.environ.get("DB_USER", "postgres"))
+            password = os.environ.get("SUPABASE_DB_PASSWORD",
+                                      os.environ.get("DB_PASSWORD", ""))
+
+            logger.info(f"""Connecting to SUPABASE cloud database {dbname}
+                            on {host}:{port} as {user}...""")
+            return psycopg.connect(
+                host=host,
+                port=port,
+                dbname=dbname,
+                user=user,
+                password=password,
+                connect_timeout=10,
+                sslmode="require",
+            )
+
+
 def seed_database():
-    host = os.environ.get("DB_HOST", "localhost")
-    port = os.environ.get("DB_PORT", "5432")
-    dbname = os.environ.get("DB_NAME", "postgres")
-    user = os.environ.get("DB_USER", "postgres")
-    password = os.environ.get("DB_PASSWORD", "postgres")
-
-    logger.info(f"Connecting to database {dbname} on {host}:{port} as {user}...")
-
     try:
-        with psycopg.connect(
-            host=host, port=port, dbname=dbname, user=user, password=password
-        ) as conn:
+        with get_connection() as conn:
             with conn.cursor() as cur:
                 # 1. Create tables
                 logger.info("Creating 'customers' table if it doesn't exist...")

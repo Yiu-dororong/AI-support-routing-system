@@ -22,7 +22,21 @@ from config.models import (
 )
 
 # Import refactored architectural configurations
-from config.settings import CHROMA_PATH, DATA_DIR, FAQS_FILE, INTENTS_FILE
+from config.settings import (
+    CHROMA_PATH,
+    DATA_DIR,
+    FAQS_FILE,
+    GEMINI_API_KEY,
+    GEMINI_PLANNER_MODEL,
+    GEMINI_SYNTHESIS_MODEL,
+    INTENTS_FILE,
+    LLM_CLOUD_API_KEY,
+    LLM_CLOUD_BASE_URL,
+    LLM_CLOUD_PLANNER_MODEL,
+    LLM_CLOUD_SYNTHESIS_MODEL,
+    LLM_PROVIDER,
+    USE_LOCAL_LLM,
+)
 from core.faq import FAQHandler
 from core.planner import ExecutionPlanner
 from core.scope import IntentClassifier
@@ -69,29 +83,6 @@ class SupportRouter:
 
         self.embeddings = HuggingFaceEmbeddings(model_name=local_embeddings_path)
 
-        # Download local execution planner model weights
-        from huggingface_hub import hf_hub_download
-
-        print("Ensuring local execution planner model is downloaded...", flush=True)
-        llm_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "llm")
-        try:
-            self.local_model_path = hf_hub_download(
-                repo_id=LLM_REPO_ID,
-                filename=LLM_FILENAME,
-                local_dir=llm_dir,
-            )
-        except Exception as e:
-            print(
-                f"Failed to download local model, using cached fallback: {e}",
-                flush=True,
-            )
-            import glob
-
-            files = glob.glob(
-                os.path.join(llm_dir, f"**/{LLM_FILENAME}"), recursive=True
-            )
-            self.local_model_path = files[0] if files else None
-
         # Download reranker model weights to local reranker/ folder
         reranker_dir = os.path.join(
             os.path.dirname(os.path.abspath(__file__)), "reranker"
@@ -114,105 +105,163 @@ class SupportRouter:
             )
             self.reranker_model_path = RERANKER_MODEL
 
-        self.llama_bin_dir = LLAMA_BIN_DIR
-        self.server_exe = os.path.join(self.llama_bin_dir, "llama-server.exe")
-        self.server_url = LLAMA_SERVER_URL
-
-        if not os.path.exists(self.server_exe):
-            print("Downloading llama.cpp CPU binaries...", flush=True)
-            import urllib.request
-            import zipfile
-
-            os.makedirs(self.llama_bin_dir, exist_ok=True)
-            zip_path = os.path.join(self.llama_bin_dir, "llama_cpu.zip")
-            urllib.request.urlretrieve(LLAMA_ZIP_URL, zip_path)
-            with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                zip_ref.extractall(self.llama_bin_dir)
-
-        # Start llama-server if not already active
-        import httpx
-
+        # Check if running in local or cloud LLM mode
+        use_local_llm = USE_LOCAL_LLM
         self.started_server = False
-        try:
-            resp = httpx.get(f"{self.server_url}/health", timeout=1.0)
-            if resp.status_code == 200:
+
+        if use_local_llm:
+            # Download local execution planner model weights
+            from huggingface_hub import hf_hub_download
+
+            print("Ensuring local execution planner model is downloaded...", flush=True)
+            llm_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "llm")
+            try:
+                self.local_model_path = hf_hub_download(
+                    repo_id=LLM_REPO_ID,
+                    filename=LLM_FILENAME,
+                    local_dir=llm_dir,
+                )
+            except Exception as e:
                 print(
-                    "Local llama-server is already running on port "
-                    f"{LLAMA_SERVER_PORT}. Reusing it.",
+                    f"Failed to download local model, using cached fallback: {e}",
                     flush=True,
                 )
-        except Exception:
-            print("Starting llama-server.exe as a background process...", flush=True)
-            import subprocess
+                import glob
 
-            self.server_process = subprocess.Popen(
-                [
-                    self.server_exe,
-                    "-m",
-                    self.local_model_path,
-                    "--port",
-                    LLAMA_SERVER_PORT,
-                    "-c",
-                    "4096",
-                    "-t",
-                    "4",
-                    "-fa",
-                    "on",
-                    "--reasoning",
-                    "off",
-                ],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                files = glob.glob(
+                    os.path.join(llm_dir, f"**/{LLM_FILENAME}"), recursive=True
+                )
+                self.local_model_path = files[0] if files else None
+
+            self.llama_bin_dir = LLAMA_BIN_DIR
+            self.server_exe = os.path.join(self.llama_bin_dir, "llama-server.exe")
+            self.server_url = LLAMA_SERVER_URL
+
+            if not os.path.exists(self.server_exe):
+                print("Downloading llama.cpp CPU binaries...", flush=True)
+                import urllib.request
+                import zipfile
+
+                os.makedirs(self.llama_bin_dir, exist_ok=True)
+                zip_path = os.path.join(self.llama_bin_dir, "llama_cpu.zip")
+                urllib.request.urlretrieve(LLAMA_ZIP_URL, zip_path)
+                with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                    zip_ref.extractall(self.llama_bin_dir)
+
+            # Start llama-server if not already active
+            import httpx
+
+            try:
+                resp = httpx.get(f"{self.server_url}/health", timeout=1.0)
+                if resp.status_code == 200:
+                    print(
+                        "Local llama-server is already running on port "
+                        f"{LLAMA_SERVER_PORT}. Reusing it.",
+                        flush=True,
+                    )
+            except Exception:
+                print("Starting llama-server.exe as a background process...",
+                      flush=True)
+                import subprocess
+
+                self.server_process = subprocess.Popen(
+                    [
+                        self.server_exe,
+                        "-m",
+                        self.local_model_path,
+                        "--port",
+                        LLAMA_SERVER_PORT,
+                        "-c",
+                        "4096",
+                        "-t",
+                        "4",
+                        "-fa",
+                        "on",
+                        "--reasoning",
+                        "off",
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                self.started_server = True
+
+                # Wait for health check
+                import time
+
+                print("Waiting for local server to initialize...", flush=True)
+                for _ in range(30):
+                    try:
+                        resp = httpx.get(f"{self.server_url}/health", timeout=1.0)
+                        if resp.status_code == 200:
+                            print("Local server is ready!", flush=True)
+                            break
+                    except Exception:
+                        pass
+                    time.sleep(1)
+
+            # Register cleanup handler
+            if (
+                self.started_server
+                and hasattr(self, "server_process")
+                and self.server_process
+            ):
+                import atexit
+
+                def cleanup_server(process):
+                    try:
+                        process.terminate()
+                        process.wait(timeout=5)
+                    except Exception:
+                        pass
+
+                atexit.register(cleanup_server, self.server_process)
+
+            # Setup local LangChain models for routing and synthesis
+            self.planner_llm = ChatOpenAI(
+                base_url=self.server_url + "/v1",
+                api_key="local-dummy-key",
+                model="gemma-4-e2b",
+                temperature=0.0,
             )
-            self.started_server = True
+            self.synthesis_llm = ChatOpenAI(
+                base_url=self.server_url + "/v1",
+                api_key="local-dummy-key",
+                model="gemma-4-e2b",
+                temperature=0.2,
+            )
+        else:
+            # Cloud LLM Mode: Skip downloading GGUF and starting llama-server
+            print(f"Using Cloud LLM inference (Provider: '{LLM_PROVIDER}')...",
+                  flush=True)
+            self.local_model_path = None
+            self.server_exe = None
 
-            # Wait for health check
-            import time
+            if LLM_PROVIDER == "gemini":
+                base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
+                api_key = GEMINI_API_KEY
+                planner_model = GEMINI_PLANNER_MODEL
+                synthesis_model = GEMINI_SYNTHESIS_MODEL
+            else:
+                base_url = LLM_CLOUD_BASE_URL
+                api_key = LLM_CLOUD_API_KEY
+                planner_model = LLM_CLOUD_PLANNER_MODEL
+                synthesis_model = LLM_CLOUD_SYNTHESIS_MODEL
 
-            print("Waiting for local server to initialize...", flush=True)
-            for _ in range(30):
-                try:
-                    resp = httpx.get(f"{self.server_url}/health", timeout=1.0)
-                    if resp.status_code == 200:
-                        print("Local server is ready!", flush=True)
-                        break
-                except Exception:
-                    pass
-                time.sleep(1)
+            self.planner_llm = ChatOpenAI(
+                base_url=base_url,
+                api_key=api_key,
+                model=planner_model,
+                temperature=0.0,
+            )
+            self.synthesis_llm = ChatOpenAI(
+                base_url=base_url,
+                api_key=api_key,
+                model=synthesis_model,
+                temperature=0.2,
+            )
 
-        # Register cleanup handler
-        if (
-            self.started_server
-            and hasattr(self, "server_process")
-            and self.server_process
-        ):
-            import atexit
-
-            def cleanup_server(process):
-                try:
-                    process.terminate()
-                    process.wait(timeout=5)
-                except Exception:
-                    pass
-
-            atexit.register(cleanup_server, self.server_process)
-
-        # Setup LangChain models for routing and synthesis
-        self.planner_llm = ChatOpenAI(
-            base_url=self.server_url + "/v1",
-            api_key="local-dummy-key",
-            model="gemma-4-e2b",
-            temperature=0.0,
-        )
         self.structured_planner = self.planner_llm.with_structured_output(
             RoutingDecision
-        )
-
-        self.synthesis_llm = ChatOpenAI(
-            base_url=self.server_url + "/v1",
-            api_key="local-dummy-key",
-            model="gemma-4-e2b",
-            temperature=0.2,
         )
 
         # Load local data configuration
@@ -485,28 +534,30 @@ class SupportRouter:
         except Exception as e:
             print(f"Reranker warm-up warning: {e}", flush=True)
 
-        # Warm up the LLM to trigger server-side model loading and grammar
-        # compilation during initialization
-        try:
-            print("Warming up local LLM model and compiling grammar...", flush=True)
-            from langchain_core.messages import HumanMessage, SystemMessage
+        # Warm up the LLM if using local llama-server to trigger model loading and grammar compilation
+        if use_local_llm:
+            try:
+                print("Warming up local LLM model and compiling grammar...", flush=True)
+                from langchain_core.messages import HumanMessage, SystemMessage
 
-            from llm import prompts as llm_prompts
+                from llm import prompts as llm_prompts
 
-            dummy_messages = [
-                SystemMessage(content=self._planner_system_prompt),
-                HumanMessage(
-                    content=(
-                        llm_prompts.EXECUTION_PLANNER_USER_TEMPLATE.format(
-                            intent="general", query="ping"
+                dummy_messages = [
+                    SystemMessage(content=self._planner_system_prompt),
+                    HumanMessage(
+                        content=(
+                            llm_prompts.EXECUTION_PLANNER_USER_TEMPLATE.format(
+                                intent="general", query="ping"
+                            )
                         )
-                    )
-                ),
-            ]
-            self.structured_planner.invoke(dummy_messages)
-            print("LLM model and grammar warm-up complete!", flush=True)
-        except Exception as e:
-            print(f"LLM warm-up warning: {e}", flush=True)
+                    ),
+                ]
+                self.structured_planner.invoke(dummy_messages)
+                print("LLM model and grammar warm-up complete!", flush=True)
+            except Exception as e:
+                print(f"LLM warm-up warning: {e}", flush=True)
+        else:
+            print("Cloud LLM planner configured and ready!", flush=True)
         # Initialize MCPServicesContainer
         import sys
 
@@ -521,7 +572,9 @@ class SupportRouter:
 
         self.mcp_container = MCPServicesContainer()
 
-        # Start persistent MCP sessions
+        # MCP Services container ready
+        # If an event loop is currently running, pre-warm connections in that loop.
+        # Otherwise, MCPClientManager will connect lazily on demand when a tool is invoked.
         try:
             import asyncio
 
@@ -532,32 +585,15 @@ class SupportRouter:
 
             self.mcp_startup_task = None
             if loop and loop.is_running():
-                # Schedule it as a task on the running loop so it stays
-                # alive in the same event loop context
                 self.mcp_startup_task = loop.create_task(self.mcp_container.start())
+                print("MCP persistent connections initialized in active loop!", flush=True)
             else:
-                asyncio.run(self.mcp_container.start())
-            print("MCP persistent connections initialized successfully!", flush=True)
+                print("MCP services container ready (will connect lazily on demand).", flush=True)
         except Exception as e:
             print(
-                f"Warning: Failed to start MCP persistent connections: {e}",
+                f"Warning: Failed to initialize MCP services container: {e}",
                 flush=True,
             )
-
-        # Register cleanup handler
-        import atexit
-
-        def cleanup_mcp(container):
-            try:
-                import asyncio
-
-                loop = asyncio.new_event_loop()
-                loop.run_until_complete(container.stop())
-                loop.close()
-            except Exception:
-                pass
-
-        atexit.register(cleanup_mcp, self.mcp_container)
 
         print("Initialization complete!", flush=True)
 

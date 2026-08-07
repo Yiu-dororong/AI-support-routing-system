@@ -2,6 +2,8 @@
 
 **Customer support routing and retrieval system that combines deterministic semantic filters, hybrid vector/lexical search, role-based metadata access control, and local LLM inference to minimize unnecessary generation.**
 
+> **Notice**: Demo runs against a synthetic e-commerce dataset ([Kaggle FAQ set](https://www.kaggle.com/datasets/saadmakhdoom/ecommerce-faq-chatbot-dataset) + generated company docs) — built to demonstrate the routing/retrieval architecture, not a real business.
+
 ---
 
 Rather than routing every query through an LLM, this system applies **progressive escalation**: queries are resolved at the cheapest possible stage—scope filtering, FAQ lookup, or direct document retrieval—before invoking generative synthesis. The retrieval layer uses a production-grade hybrid search pipeline (BM25 + ChromaDB + RRF + Cross-Encoder re-ranking) with metadata role filters to prevent internal policy leakage.
@@ -92,8 +94,8 @@ The results show strong retrieval reliability, while remaining errors primarily 
 | **Retrieval** | Hybrid Search (BM25 + Dense, fused with RRF) |
 | **Re-ranking Model** | CrossEncoder (`ms-marco-MiniLM-L-6-v2`) |
 | **Document Parser** | IBM Docling (page-based partitioning) |
-| **Inference Engine** | llama.cpp [(b9840 CPU Binary)](https://github.com/ggml-org/llama.cpp/releases/tag/b9840) |
-| **Model Weights** | [unsloth/gemma-4-E2B-it-GGUF Q4_K_XL](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF) |
+| **Inference Engine** | Local llama.cpp CPU binary OR Cloud LLM APIs (Google Gemini, OpenAI) |
+| **Model Weights** | Local [unsloth/gemma-4-E2B-it-GGUF](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF) or Cloud models (`gemma-4-31b-it`, `gemini-2.5-flash`, etc.) |
 | **User Interface** | Streamlit |
 
 ---
@@ -110,7 +112,7 @@ copy .env.example .env
 streamlit run app/main.py
 ```
 
-*(Optional)* Configure Langfuse and Hugging Face credentials in `.env`. The llama.cpp binary and all models we used (Gemma, reranker, sentence transformer) are auto-downloaded on first run.
+*(Optional)* Configure Database (`USE_LOCAL_DB`), Cloud LLM (`USE_LOCAL_LLM="false"` with `GEMINI_API_KEY`), and Langfuse observability in `.env`. When running in local mode, model weights and llama.cpp CPU binaries are auto-downloaded on first launch. Setting `USE_LOCAL_LLM="false"` skips the 3GB model download and local server startup for instant lightweight execution.
 
 ```powershell
 python -m pytest                       # unit tests
@@ -150,9 +152,10 @@ router/
 
 While a hybrid RAG pipeline retrieves stable documentation (FAQs, guides) effectively, it cannot handle **live transactional data** (e.g., order history) or **rapidly changing operational knowledge** (e.g., active promotion dates) which do not belong in a static vector index. 
 
-* **Architecture**: The **Execution Planner** decides in a single grammar-constrained pass if external tools are needed. The `ToolExecutor` dispatches calls concurrently (`asyncio.gather()`) to a custom PostgreSQL MCP server (for transactions) and an official Notion MCP server (for promotions), merging results with RAG context into the synthesis LLM.
+* **Architecture**: The **Execution Planner** decides in a single grammar-constrained pass if external tools are needed. The `ToolExecutor` dispatches calls concurrently (`asyncio.gather()`) to a custom PostgreSQL MCP server (for transcaction, supporting both local host or cloud Supabase) and an official Notion MCP server (for promotions), merging results with RAG context into the synthesis LLM.
 * **Performance**: Across **11 test scenarios**, the planner achieved **90.9% (10/11 cases) accuracy** in tool selection and routing. The only failure occurred on the query *"Can you show me my recent purchase history?"*, where the llm explained how to find history rather than used database records via MCP.
 * **Trade-Offs**: MCP extends system capability to live databases and dynamic CMS data, but introduces extra architectural complexity and execution latency (e.g., database connection timeouts).
+* **Flexible Database Deployment**: Supports both local PostgreSQL (Docker/service) and Cloud PostgreSQL (Supabase). Toggle between modes effortlessly in `.env` using `USE_LOCAL_DB="true"` or `USE_LOCAL_DB="false"` with `SUPABASE_DB_URL`.
 * **Future Scaling**: Exposing all tool schemas directly to the planner works for small sets, but clutters context windows at scale. The future roadmap includes a **Tool Retrieval** layer to dynamically retrieve and bind only the most relevant tools before planning, keeping decoding fast and context efficient.
 
 *Note: If you do not configure the PostgreSQL database and Notion token, it will automatically run in Demo mode using mock data.*

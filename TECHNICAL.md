@@ -233,7 +233,7 @@ The MCP extension augments the hybrid RAG pipeline with live, structured data lo
 
 ### Tool Execution (MCP)
 Managed by a persistent `MCPServicesContainer` initialized at startup. Registered business-level tools are mapped to their respective MCP servers via a `ToolRegistry`, keeping vendor-specific details hidden from the planner:
-* **Custom PostgreSQL MCP Server**: Exposes transactional database lookups.
+* **Custom PostgreSQL MCP Server**: Exposes transactional database lookups (`orders`, `customers`). Supports both local PostgreSQL and Cloud PostgreSQL like Supabase via `USE_LOCAL_DB` flag and `SUPABASE_DB_URL` in `.env`.
 * **Official Notion MCP Server**: Exposes operational promo dates and marketing calendars.
 * **Abstract Toolset**: The planner reasons over business capabilities (`get_order_details`, `get_customer_profile`, `get_event_details`, `search_events`) rather than direct database/API queries.
 * **Concurrency**: Independent tool calls are dispatched in parallel via `asyncio.gather()`.

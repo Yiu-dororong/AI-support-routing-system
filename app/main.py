@@ -664,7 +664,14 @@ with tab_chat:
     col1, col2 = st.columns([2, 1])
 
     with col1:
-        st.subheader("Customer Support Assistant")
+        st.subheader("VoltVibe Customer Support Assistant")
+        st.markdown(
+            "<small style='font-style: italic; display: block; "
+            "margin-top: -8px; margin-bottom: 12px;'>"
+            "(Synthetic Consumer Electronics & Refurbished Devices Store)"
+            "</small>",
+            unsafe_allow_html=True,
+        )
 
         main_chat_area = st.container()
 

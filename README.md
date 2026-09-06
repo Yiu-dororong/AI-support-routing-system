@@ -94,7 +94,7 @@ The results show strong retrieval reliability, while remaining errors primarily 
 | **Retrieval** | Hybrid Search (BM25 + Dense, fused with RRF) |
 | **Re-ranking Model** | CrossEncoder (`ms-marco-MiniLM-L-6-v2`) |
 | **Document Parser** | IBM Docling (page-based partitioning) |
-| **Inference Engine** | Local llama.cpp CPU binary OR Cloud LLM APIs (Google Gemini, OpenAI) |
+| **Inference Engine** | Local llama.cpp CPU binary OR Cloud LLM APIs (Google Gemini, OpenAI, OrcaRouter) |
 | **Model Weights** | Local [unsloth/gemma-4-E2B-it-GGUF](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF) or Cloud models (`gemma-4-31b-it`, `gemini-2.5-flash`, etc.) |
 | **User Interface** | Streamlit |
 
@@ -112,7 +112,12 @@ copy .env.example .env
 streamlit run app/main.py
 ```
 
-*(Optional)* Configure Database (`USE_LOCAL_DB`), Cloud LLM (`USE_LOCAL_LLM="false"` with `GEMINI_API_KEY`), and Langfuse observability in `.env`. When running in local mode, model weights and llama.cpp CPU binaries are auto-downloaded on first launch. Setting `USE_LOCAL_LLM="false"` skips the 3GB model download and local server startup for instant lightweight execution.
+> 💡 **Custom Domain Setup:** Want to deploy this router to your own domain (IT Helpdesk, SaaS Support, Healthcare)? Check out the [Custom Domain Setup Guide](examples/template/README.md).
+
+*(Optional)* Configure Database (`USE_LOCAL_DB`), Cloud LLM (`USE_LOCAL_LLM="false"` with `GEMINI_API_KEY`, `LLM_PROVIDER="orcarouter"`, or `LLM_PROVIDER="openai"`), and Langfuse observability in `.env`. 
+
+When running in local mode, model weights and llama.cpp CPU binaries are auto-downloaded on first launch. Setting `USE_LOCAL_LLM="false"` skips the 3GB model download and local server startup for instant lightweight execution.
+
 
 ```powershell
 python -m pytest                       # unit tests

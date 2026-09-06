@@ -176,6 +176,7 @@ def _detect_api_key() -> str | None:
         or os.environ.get("OPENAI_API_KEY")
         or os.environ.get("RAGAS_GEMINI_API_KEY")
         or os.environ.get("GEMINI_API_KEY")
+        or os.environ.get("ORCAROUTER_API_KEY")
     )
 
 

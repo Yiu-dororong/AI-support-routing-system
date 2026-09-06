@@ -35,6 +35,10 @@ from config.settings import (
     LLM_CLOUD_PLANNER_MODEL,
     LLM_CLOUD_SYNTHESIS_MODEL,
     LLM_PROVIDER,
+    ORCAROUTER_API_KEY,
+    ORCAROUTER_BASE_URL,
+    ORCAROUTER_PLANNER_MODEL,
+    ORCAROUTER_SYNTHESIS_MODEL,
     USE_LOCAL_LLM,
 )
 from core.faq import FAQHandler
@@ -241,6 +245,11 @@ class SupportRouter:
                 api_key = GEMINI_API_KEY
                 planner_model = GEMINI_PLANNER_MODEL
                 synthesis_model = GEMINI_SYNTHESIS_MODEL
+            elif LLM_PROVIDER == "orcarouter":
+                base_url = ORCAROUTER_BASE_URL
+                api_key = ORCAROUTER_API_KEY
+                planner_model = ORCAROUTER_PLANNER_MODEL
+                synthesis_model = ORCAROUTER_SYNTHESIS_MODEL
             else:
                 base_url = LLM_CLOUD_BASE_URL
                 api_key = LLM_CLOUD_API_KEY

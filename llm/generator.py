@@ -45,23 +45,16 @@ class ResponseGenerator:
             )
 
         # Dynamically append tool results as structured blocks
-        friendly_tool_names = {
-            "get_order_details": "Order Details",
-            "get_customer_profile": "Customer Profile",
-            "search_events": "Event Search Results",
-            "get_event_details": "Event Details",
-        }
         tool_context_str = ""
         if tool_results:
             for tool_name, result in tool_results.items():
-                display_name = friendly_tool_names.get(
-                    tool_name, tool_name.replace("_", " ").title()
-                )
+                display_name = tool_name.replace("_", " ").strip().title()
                 tool_context_str += f"=== {display_name} ===\n"
                 if isinstance(result, dict) and "error" in result:
                     tool_context_str += f"Error: {result['error']}\n\n"
                 else:
                     tool_context_str += f"{json.dumps(result, indent=2)}\n\n"
+
 
         from langchain_core.messages import HumanMessage, SystemMessage
 

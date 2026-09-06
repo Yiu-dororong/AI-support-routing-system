@@ -1,8 +1,13 @@
+from config.settings import DOMAIN_CONFIG
+
 # Canned Responses
-OUT_OF_SCOPE_REFUSAL = (
-    "I can help with orders, returns, payments, product questions, "
-    "shipping, and account issues. Could you tell me more about "
-    "what you need?"
+OUT_OF_SCOPE_REFUSAL = DOMAIN_CONFIG.get(
+    "out_of_scope_message",
+    (
+        "I can help with orders, returns, payments, product questions, "
+        "shipping, and account issues. Could you tell me more about "
+        "what you need?"
+    ),
 )
 
 DEFAULT_SAFETY_REFUSAL = (
@@ -40,8 +45,14 @@ LLM_SYNTHESIS_FAILED_FALLBACK_HEADER = (
 )
 
 # Prompts
-EXECUTION_PLANNER_SYSTEM_PROMPT = """\
-You are the Execution Planner for an e-commerce AI Support system.
+_SYSTEM_ROLE = DOMAIN_CONFIG.get(
+    "system_role",
+    "You are the Execution Planner for an AI Support system.",
+)
+_DOMAIN_NAME = DOMAIN_CONFIG.get("domain_name", "AI Support")
+
+EXECUTION_PLANNER_SYSTEM_PROMPT_TEMPLATE = """\
+{system_role}
 Your job is to classify the user's query and route it to the correct execution path.
 
 Available Tools:
@@ -97,12 +108,16 @@ Provide your decision in the following JSON format:
 }}
 """
 
+EXECUTION_PLANNER_SYSTEM_PROMPT = EXECUTION_PLANNER_SYSTEM_PROMPT_TEMPLATE.replace(
+    "{system_role}", _SYSTEM_ROLE
+)
+
 EXECUTION_PLANNER_USER_TEMPLATE = """\
 The user's query falls under the detected intent: {intent}.
 User Query: "{query}"
 """
 
-RESPONSE_SYNTHESIS_SYSTEM_PROMPT = """You are a helpful e-commerce support assistant.
+RESPONSE_SYNTHESIS_SYSTEM_PROMPT = f"""You are a helpful {_DOMAIN_NAME} assistant.
 Your task is to answer the user's query using the retrieved support documents
 and any external tool context provided below.
 Do not use any external or parametric knowledge. If the retrieved documents

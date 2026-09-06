@@ -1,0 +1,5 @@
+{
+  "domain_name": "Your Domain Name (e.g. IT Helpdesk / SaaS Support / Healthcare)",
+  "system_role": "You are the Execution Planner for an AI Support system.",
+  "out_of_scope_message": "I can help with questions regarding our services and documentation. Could you please specify more details?"
+}

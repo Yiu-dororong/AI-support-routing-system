@@ -216,3 +216,17 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# LLM models
+embeddings/
+llama_bin/
+llm/gemma-4-E2B-it-UD-Q4_K_XL.gguf
+llm/test_*.py
+reranker/
+data/chroma_db/
+
+# Supportive tools and files
+.serena/
+.docs/
+.agents/
+.context/

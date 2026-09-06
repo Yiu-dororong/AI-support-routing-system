@@ -1,3 +1,4 @@
+import json
 import os
 
 
@@ -14,6 +15,31 @@ FAQS_FILE = os.environ.get(
     "FAQS_FILE",
     os.path.join(DATA_DIR, "Ecommerce_FAQ_Chatbot_dataset.json"),
 )
+DOMAIN_CONFIG_FILE = os.environ.get(
+    "DOMAIN_CONFIG_FILE",
+    os.path.join(DATA_DIR, "domain_config.json"),
+)
+
+
+def _load_domain_config() -> dict:
+    if os.path.exists(DOMAIN_CONFIG_FILE):
+        try:
+            with open(DOMAIN_CONFIG_FILE, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {
+        "domain_name": "AI Support",
+        "system_role": "You are the Execution Planner for an AI Support system.",
+        "out_of_scope_message": (
+            "I can help answer support inquiries based on our knowledge base and tools."
+        ),
+    }
+
+
+DOMAIN_CONFIG = _load_domain_config()
+
+
 
 # LLM Inference Configuration Settings
 USE_LOCAL_LLM = os.environ.get("USE_LOCAL_LLM",

@@ -1,0 +1,26 @@
+{
+  "general_inquiry": {
+    "description": "General questions regarding company services, features, or policies.",
+    "examples": [
+      "What are your operating hours?",
+      "How do I contact customer support?",
+      "Where can I find user documentation?"
+    ]
+  },
+  "technical_issue": {
+    "description": "Technical issues, errors, or troubleshooting requests.",
+    "examples": [
+      "I am getting an error when logging in",
+      "The page is not loading properly",
+      "My feature is not working as expected"
+    ]
+  },
+  "account_management": {
+    "description": "Account access, password resets, and profile settings.",
+    "examples": [
+      "How do I reset my password?",
+      "How do I update my email address?",
+      "Where are my account settings?"
+    ]
+  }
+}

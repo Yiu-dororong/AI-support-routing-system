@@ -1,0 +1,5 @@
+{
+  "domain_name": "E-Commerce Support",
+  "system_role": "You are the Execution Planner for an e-commerce AI Support system.",
+  "out_of_scope_message": "I can help with orders, returns, payments, product questions, shipping, and account issues. Could you tell me more about what you need?"
+}

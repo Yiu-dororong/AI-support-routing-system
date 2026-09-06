@@ -32,7 +32,7 @@ class ToolRegistry:
 
     def register(
         self,
-        name: ToolName,
+        name: ToolName | str,
         server: MCPServer,
         description: str,
         query_description: str,
@@ -40,7 +40,8 @@ class ToolRegistry:
         """Decorator to register a tool associated with a specific server."""
 
         def decorator(func: Callable) -> Callable:
-            self._tools[name] = ToolDefinition(
+            tool_key = name.value if hasattr(name, "value") else str(name)
+            self._tools[tool_key] = ToolDefinition(
                 name=name,
                 server=server,
                 description=description,
@@ -68,18 +69,22 @@ class ToolRegistry:
             server = self._servers[server_name]
             lines.append(f"Server: {server.name} ({server.description})")
             for tool in tools:
-                lines.append(f"  - tool='{tool.name.value}': {tool.description}")
+                tool_name_str = (tool.name.value if hasattr(tool.name, "value")
+                                 else str(tool.name))
+                lines.append(f"  - tool='{tool_name_str}': {tool.description}")
                 lines.append(f"    query: {tool.query_description}")
             lines.append("")
         return "\n".join(lines).strip()
 
     async def dispatch(
-        self, name: ToolName, query: str | None, context: dict[str, Any]
+        self, name: ToolName | str, query: str | None, context: dict[str, Any]
     ) -> Any:
-        tool = self._tools.get(name)
+        tool_key = name.value if hasattr(name, "value") else str(name)
+        tool = self._tools.get(tool_key) or self._tools.get(name)
         if not tool:
             raise ValueError(f"No handler registered for tool: {name}")
         return await tool.handler(query, context)
+
 
 
 registry = ToolRegistry()

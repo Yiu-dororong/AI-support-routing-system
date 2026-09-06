@@ -1,0 +1,12 @@
+[
+  {
+    "question": "How do I reset my password?",
+    "answer": "You can reset your password by navigating to the login page and clicking 'Forgot Password'. Follow the link sent to your registered email address.",
+    "intent": "account_management"
+  },
+  {
+    "question": "What are your support operating hours?",
+    "answer": "Our automated AI support is available 24/7. Human support representatives are available Monday through Friday from 9 AM to 5 PM EST.",
+    "intent": "general_inquiry"
+  }
+]

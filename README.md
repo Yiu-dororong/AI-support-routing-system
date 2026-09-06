@@ -12,9 +12,8 @@
 
 🔴 **[Live Demo](https://ai-support-routing-system-fox.streamlit.app/)** &nbsp;&nbsp;|&nbsp;&nbsp; 📄 **[Technical Documentation](TECHNICAL.md)**
 
-> 🐳 **Enjoying this project?** If you use LLM APIs, try [OrcaRouter](https://www.orcarouter.ai/ref/ref_f6ae95231757e44c6313) — one API, 200+ models, zero markup. It routes your prompts to the best-priced model. OrcaRouter is natively supported as an optional LLM provider in this project. Registering via our [referral link](https://www.orcarouter.ai/ref/ref_f6ae95231757e44c6313) earns this project a 5% commission at no extra cost to you.
-
 ---
+
 
 
 ## 🎯 Design Principles
@@ -190,3 +189,7 @@ The Streamlit dashboard provides real-time slider controls for the **Scope**, **
 > This project evolved from an experimental RAG document assistant into a modular orchestration system as requirements for deterministic routing, bounded inference, and human escalation emerged.
 
 *For implementation internals—chunking strategy, hybrid search design, RBAC mechanics, evaluation results, and local inference optimizations—see [TECHNICAL.md](TECHNICAL.md).*
+
+---
+
+> 🐳 **Enjoy the routing concept & need LLM APIs?** Consider trying [OrcaRouter](https://www.orcarouter.ai/ref/ref_f6ae95231757e44c6313) — an OpenAI-compatible gateway and intelligent model meta-router that lets you access over 150+ LLMs (OpenAI, Anthropic, Gemini, DeepSeek, Qwen) through a single endpoint with dynamic auto-routing. It is natively supported as an optional provider in this system. Signing up via my [referral link](https://www.orcarouter.ai/ref/ref_f6ae95231757e44c6313) helps support me and my work at zero extra cost to you.

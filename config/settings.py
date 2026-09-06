@@ -62,6 +62,8 @@ LLM_CLOUD_SYNTHESIS_MODEL = os.environ.get("LLM_CLOUD_SYNTHESIS_MODEL", "gpt-4o-
 # OrcaRouter Settings
 ORCAROUTER_API_KEY = os.environ.get("ORCAROUTER_API_KEY", "")
 ORCAROUTER_BASE_URL = os.environ.get("ORCAROUTER_BASE_URL", "https://api.orcarouter.ai/v1")
-ORCAROUTER_PLANNER_MODEL = os.environ.get("ORCAROUTER_PLANNER_MODEL", "openai/gpt-4o-mini")
-ORCAROUTER_SYNTHESIS_MODEL = os.environ.get("ORCAROUTER_SYNTHESIS_MODEL", "openai/gpt-4o-mini")
+ORCAROUTER_PLANNER_MODEL = os.environ.get("ORCAROUTER_PLANNER_MODEL",
+                                          "openai/gpt-4o-mini")
+ORCAROUTER_SYNTHESIS_MODEL = os.environ.get("ORCAROUTER_SYNTHESIS_MODEL",
+                                            "openai/gpt-4o-mini")
 

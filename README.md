@@ -12,7 +12,10 @@
 
 🔴 **[Live Demo](https://ai-support-routing-system-fox.streamlit.app/)** &nbsp;&nbsp;|&nbsp;&nbsp; 📄 **[Technical Documentation](TECHNICAL.md)**
 
+> 🐳 **Enjoying this project?** If you use LLM APIs, try [OrcaRouter](https://www.orcarouter.ai/ref/ref_f6ae95231757e44c6313) — one API, 200+ models, zero markup. It routes your prompts to the best-priced model. OrcaRouter is natively supported as an optional LLM provider in this project. Registering via our [referral link](https://www.orcarouter.ai/ref/ref_f6ae95231757e44c6313) earns this project a 5% commission at no extra cost to you.
+
 ---
+
 
 ## 🎯 Design Principles
 

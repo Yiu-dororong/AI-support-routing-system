@@ -72,7 +72,7 @@ def main():
             actual_path = "faq_bypass"
         else:
             # Planner
-            decision, _ = router.run_execution_planner(query, intent)
+            decision, _ = router.run_execution_planner(query, intent, user_role=role)
             actual_path = decision.path
 
         # Compare paths

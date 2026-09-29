@@ -119,8 +119,14 @@ class SupportRouterLike(Protocol):
         self,
         query: str,
         retrieved_docs: list[dict[str, Any]],
+        tool_results: dict | None = None,
         callbacks=None,
         metadata: dict = None,
+        user_role: str = "customer",
+        kb_version: str = "v1",
+        path: str = "rag_llm",
+        intent: str = "general",
+        query_emb=None,
     ) -> tuple[str, str]: ...
 
 

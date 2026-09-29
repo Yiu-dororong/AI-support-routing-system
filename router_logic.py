@@ -517,7 +517,9 @@ class SupportRouter:
         except Exception as e:
             print(f"Populate kb_documents warning: {e}", flush=True)
 
-        # Instantiate modular components matching folder layout
+        from core.cache import DualLayerCacheManager, hash_prompt
+
+        self.cache_manager = DualLayerCacheManager()
         self.intent_classifier = IntentClassifier(self.intent_centroids)
         self.faq_handler = FAQHandler(self.faq_embeddings)
 
@@ -527,8 +529,9 @@ class SupportRouter:
         planner_system_prompt = prompts.EXECUTION_PLANNER_SYSTEM_PROMPT.format(
             available_tools=tool_descriptions
         )
-        # Store for warm-up use
+        # Store for warm-up and cache versioning
         self._planner_system_prompt = planner_system_prompt
+        self._planner_prompt_hash = hash_prompt(planner_system_prompt)
         self.planner = ExecutionPlanner(
             self.structured_planner, system_prompt=planner_system_prompt
         )
@@ -652,15 +655,41 @@ class SupportRouter:
         return self.router.match_faq(query_emb, threshold=threshold)
 
     def run_execution_planner(
-        self, query: str, intent: str, callbacks=None, metadata: dict = None
+        self,
+        query: str,
+        intent: str,
+        callbacks=None,
+        metadata: dict = None,
+        user_role: str = "customer",
     ) -> tuple[RoutingDecision, str | None]:
         """
-        [2] Execution Planner: Use a local Gemma-4-E2B model
-        to determine the execution path.
+        [2] Execution Planner: Layer 1 Planner Cache lookup or fallback
+        to execution planner LLM.
         """
-        return self.router.plan_routing(
+        cached_decision = self.cache_manager.get_planner(
+            query=query, user_role=user_role, prompt_hash=self._planner_prompt_hash
+        )
+        if cached_decision:
+            return (
+                cached_decision,
+                (
+                    "[Planner Cache Hit] Reused decision for path "
+                    f"'{cached_decision.path}'."
+                ),
+            )
+
+        decision, raw_output = self.router.plan_routing(
             query, intent, callbacks=callbacks, metadata=metadata
         )
+
+        self.cache_manager.set_planner(
+            query=query,
+            user_role=user_role,
+            prompt_hash=self._planner_prompt_hash,
+            decision=decision,
+            intent=intent,
+        )
+        return decision, raw_output
 
     def run_retrieval_layer(
         self,
@@ -692,15 +721,62 @@ class SupportRouter:
         tool_results: dict | None = None,
         callbacks=None,
         metadata: dict = None,
+        user_role: str = "customer",
+        kb_version: str = "v1",
+        path: str = "rag_llm",
+        intent: str = "general",
+        query_emb: np.ndarray | None = None,
     ) -> tuple[str, str]:
         """
-        [4] Response Generation: Synthesize the final answer using local
-        Gemma-4-E2B, grounded only in the retrieved documents.
+        [4] Response Generation: Layer 2 Response Cache lookup or fallback
+        to synthesis LLM grounded in retrieved documents.
         """
-        return self.generator.generate(
+        if query_emb is None:
+            query_emb = self.get_query_embedding(query)
+
+        doc_ids = [
+            d.get("id") or d.get("metadata", {}).get("title", f"doc_{i}")
+            for i, d in enumerate(retrieved_docs)
+        ]
+
+        cached_answer = self.cache_manager.get_response_candidate(
+            query=query,
+            query_embedding=query_emb,
+            user_role=user_role,
+            kb_version=kb_version,
+            current_path=path,
+            current_intent=intent,
+            current_doc_ids=doc_ids,
+        )
+        if cached_answer:
+            return cached_answer, "[Response Cache Hit] Reused synthesized response."
+
+        raw_output, prompt = self.generator.generate(
             query=query,
             retrieved_docs=retrieved_docs,
             tool_results=tool_results,
             callbacks=callbacks,
             metadata=metadata,
         )
+
+        cacheable_ans = raw_output
+        if (
+            hasattr(self.generator, "last_synthesis_response")
+            and self.generator.last_synthesis_response
+        ):
+            cacheable_ans = self.generator.last_synthesis_response.cacheable_answer
+
+        self.cache_manager.set_response(
+            query=query,
+            query_embedding=query_emb,
+            cacheable_answer=cacheable_ans,
+            user_role=user_role,
+            kb_version=kb_version,
+            path=path,
+            intent=intent,
+            retrieved_doc_ids=doc_ids,
+            tool_results=tool_results,
+        )
+
+        return raw_output, prompt
+

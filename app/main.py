@@ -444,6 +444,9 @@ def process_query(query_text: str, status=None):
         max_intent,
         callbacks=[langfuse_handler] if langfuse_handler else None,
         metadata=lf_metadata,
+        # The Streamlit app does not have a user authentication layer;
+        # all sessions are treated as customer-role for cache partitioning.
+        user_role="customer",
     )
     trace["planner"] = {
         "path": decision.path,
@@ -513,7 +516,7 @@ def process_query(query_text: str, status=None):
         )
     # 4. Retrieval Layer (for rag and rag_llm paths)
     retrieved_docs, retrieve_err = router.run_retrieval_layer(
-        query_text, threshold=retrieval_threshold
+        query_text, threshold=retrieval_threshold, user_role="customer"
     )
     trace["retrieval"] = {"docs": retrieved_docs, "error": retrieve_err}
 
@@ -627,6 +630,10 @@ def process_query(query_text: str, status=None):
                 tool_results=tool_results,
                 callbacks=[langfuse_handler] if langfuse_handler else None,
                 metadata=lf_metadata,
+                user_role="customer",
+                path=decision.path,
+                intent=max_intent,
+                query_emb=query_emb,
             )
             thinking, answer = split_thinking(raw_answer)
             if answer and not answer.strip().startswith("⚠️"):

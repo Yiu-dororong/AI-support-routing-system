@@ -639,7 +639,7 @@ class SupportRouter:
         return np.array(self.embeddings.embed_query(query))
 
     def run_scope_filter(
-        self, query_emb: np.ndarray, threshold: float = 0.15
+        self, query_emb: np.ndarray, threshold: float = 0.15, **kwargs
     ) -> tuple[bool, str, dict[str, float]]:
         """
         [0] Scope Filter: Check if the query is in-scope against intent centroids.
@@ -647,7 +647,7 @@ class SupportRouter:
         return self.router.classify_intent(query_emb, threshold=threshold)
 
     def run_faq_layer(
-        self, query_emb: np.ndarray, threshold: float = 0.8
+        self, query_emb: np.ndarray, threshold: float = 0.8, **kwargs
     ) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
         """
         [1] FAQ Layer: Look for a high-confidence match in the FAQ dataset.
@@ -661,6 +661,7 @@ class SupportRouter:
         callbacks=None,
         metadata: dict = None,
         user_role: str = "customer",
+        **kwargs,
     ) -> tuple[RoutingDecision, str | None]:
         """
         [2] Execution Planner: Layer 1 Planner Cache lookup or fallback
@@ -697,6 +698,7 @@ class SupportRouter:
         n_results: int = 2,
         threshold: float = 0.0,
         user_role: str = "customer",
+        **kwargs,
     ) -> tuple[list[dict[str, Any]], str | None]:
         """
         [3] Retrieval Layer: Query RAGPipeline for top-k matching support documents.
@@ -726,6 +728,7 @@ class SupportRouter:
         path: str = "rag_llm",
         intent: str = "general",
         query_emb: np.ndarray | None = None,
+        **kwargs,
     ) -> tuple[str, str]:
         """
         [4] Response Generation: Layer 2 Response Cache lookup or fallback

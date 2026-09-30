@@ -145,8 +145,11 @@ st.sidebar.title("🛠️ System Configuration")
 
 if st.sidebar.button(
     "Reset System Cache",
-    help="Clear session state and force reload code modifications.",
+    help="Clear session state, flush dual-layer router cache, and reload.",
 ):
+    if "router" in st.session_state and hasattr(st.session_state.router, "cache_manager"):
+        st.session_state.router.cache_manager.clear()
+    st.cache_resource.clear()
     st.session_state.clear()
     st.rerun()
 
@@ -280,11 +283,12 @@ def render_trace_response(trace):
 
     if path == "rag" and trace["retrieval"]["docs"]:
         best_doc = trace["retrieval"]["docs"][0]
-        t = best_doc["metadata"]["title"]
-        sect = best_doc["metadata"].get("section", "N/A")
-        sim = best_doc["similarity"]
+        meta = best_doc.get("metadata", {})
+        t = meta.get("title", "Document")
+        sect = meta.get("section", "N/A")
+        sim = best_doc.get("similarity", 1.0)
 
-        content_display = best_doc["content"]
+        content_display = best_doc.get("content", "")
         if t.startswith("FAQ:") and "Answer:" in content_display:
             content_display = content_display.split("Answer:", 1)[1].strip()
 
@@ -531,11 +535,15 @@ def process_query(query_text: str, status=None):
         # Simple factual lookup -> present best document directly (LLM bypassed!)
         if retrieved_docs:
             best_doc = retrieved_docs[0]
+            meta = best_doc.get("metadata", {})
+            title = meta.get("title", "Document")
+            sim = best_doc.get("similarity", 1.0)
+            content = best_doc.get("content", "")
             answer = (
                 f"ℹ️ **Factual Lookup (RAG Direct Match):**\n\n"
-                f"{best_doc['content']}\n\n"
-                f"*Source: [{best_doc['metadata']['title']}] "
-                f"(Embedding Match Confidence: {best_doc['similarity']:.2f})*"
+                f"{content}\n\n"
+                f"*Source: [{title}] "
+                f"(Embedding Match Confidence: {sim:.2f})*"
             )
             raw_prompt = (
                 "N/A - Direct factual document presentation (LLM generation bypassed)."
@@ -639,8 +647,9 @@ def process_query(query_text: str, status=None):
             if answer and not answer.strip().startswith("⚠️"):
                 sources_md = "\n\n---\nℹ️ **Sources Used for Synthesis:**\n"
                 for doc in retrieved_docs:
-                    t = doc["metadata"]["title"]
-                    c = doc["similarity"]
+                    meta = doc.get("metadata", {})
+                    t = meta.get("title", "Document")
+                    c = doc.get("similarity", 1.0)
                     sources_md += f"- **{t}** *(Similarity Confidence: {c:.2f})*\n"
                 if tool_results:
                     for tool_name, result in tool_results.items():
@@ -914,14 +923,22 @@ with tab_trace:
             docs = ret_data.get("docs", [])
             st.markdown(f"**Documents retrieved:** {len(docs)}")
             for i, doc in enumerate(docs):
-                meta = doc["metadata"]
-                st.markdown(
-                    f"---  \n**Document {i + 1}: {meta['title']}** "
-                    f"(ID: `{doc['id']}` | Intent: `{meta['category']}`)  \n"
-                    f"**Cosine Similarity Score:** `{doc['similarity']:.4f}` "
-                    f"(Distance: `{doc['distance']:.4f}`)  \n**Content:**"
+                meta = doc.get("metadata", {})
+                title = meta.get("title", f"Doc {i + 1}")
+                category = meta.get("category", "General")
+                doc_id = doc.get("id", "N/A")
+                sim = doc.get("similarity", 0.0)
+                dist_val = doc.get("distance")
+                dist_str = (
+                    f" (Distance: `{dist_val:.4f}`)" if dist_val is not None else ""
                 )
-                st.info(doc["content"])
+                st.markdown(
+                    f"---  \n**Document {i + 1}: {title}** "
+                    f"(ID: `{doc_id}` | Intent: `{category}`)  \n"
+                    f"**Cosine Similarity Score:** `{sim:.4f}`"
+                    f"{dist_str}  \n**Content:**"
+                )
+                st.info(doc.get("content", ""))
 
         # [3.5] External Tool Execution details
         with st.expander(

@@ -107,6 +107,12 @@ class ResponseCacheEntry(BaseModel):
     intent: str
     retrieved_doc_ids: list[str]
     created_at: float = Field(default_factory=time.time)
+    ttl_seconds: float = 86400.0
+
+    def is_expired(self, current_time: float | None = None) -> bool:
+        now = current_time or time.time()
+        return (now - self.created_at) > self.ttl_seconds
+
 
 
 class DualLayerCacheManager:
@@ -298,7 +304,9 @@ class DualLayerCacheManager:
         tier1_rejected_hash: str | None = None
         exact_entry = self._response_cache.get(exact_key)
         if exact_entry:
-            if (
+            if exact_entry.is_expired():
+                del self._response_cache[exact_key]
+            elif (
                 exact_entry.path == current_path
                 and exact_entry.intent == current_intent
             ):
@@ -309,6 +317,9 @@ class DualLayerCacheManager:
 
         # Tier 2 Vector Candidate Discovery
         for entry in self._response_entries:
+            if entry.is_expired():
+                continue
+
             if tier1_rejected_hash and entry.query_hash == tier1_rejected_hash:
                 continue
 

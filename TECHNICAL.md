@@ -124,6 +124,64 @@ Because `llama-server` compiles JSON grammar syntax trees lazily on the first in
 
 ---
 
+## 📖 Cache System
+
+The system implements a **Dual-Layer** Cache Architecture designed to bypass expensive LLM inference steps while maintaining strict evidence consistency and role boundaries. In this prototype, caching operates as an in-memory dictionary and vector scanner; for production deployments, in-memory storage is replaced by **Redis Stack (RedisVL / RediSearch)** or a dedicated vector DB (such as **Qdrant**).
+
+```
+Incoming Query B + user_role
+        │
+ [ 1. Out-of-Scope Filter ] ──► (In-Scope?)
+        │
+ [ 2. FAQ Direct Match ] ────► HIT ──► Return FAQ Answer
+        │ MISS
+ ┌──────────────────────────┐
+ │  Layer 1: Planner Cache  │ ──► HIT (Tier 1 Exact or Tier 2 Cosine >= theta_planner)
+ └──────────────────────────┘      │ ──► Reuse Routing Path (e.g. path="rag")
+        │ MISS
+    Run Real-time Planner ──► (Save decision & embedding vector if non-error)
+        │
+ [ Fast Hybrid Retrieval ] ──► Ranked Document Evidence [D1, D2, D3...]
+        │
+ ┌──────────────────────────┐
+ │  Layer 2: Response Cache │
+ └──────────────────────────┘
+        │ Check 5-Point Reuse Gate for candidate Query A:
+        ├─ 1. Semantic Similarity (Cosine >= theta_read)
+        ├─ 2. Planner Compatibility (path & intent match)
+        ├─ 3. RBAC & Context Scope (user_role matches)
+        ├─ 4. Knowledge Version (kb_version matches)
+        └─ 5. Retrieval Evidence Consistency (RBO on document IDs >= theta_rbo)
+        │
+     All Pass?
+      /     \
+    YES      NO
+     │        │
+     ▼        ▼
+ Reuse      Run Response LLM (SynthesisResponse)
+cacheable     │
+ answer     (If tool_results is empty) ──► Save cacheable_answer to Response Cache
+```
+
+### 1. Layer 1 — 2-Tier Planner Cache Architecture
+
+Layer 1 (`_planner_cache`) reuses routing decisions (`path`, `reason`, `tools`) to bypass the Execution Planner LLM via a two-tier lookup: an $O(1)$ Tier 1 exact SHA-256 hash check on normalized query strings, followed by a Tier 2 vector semantic scan ($\text{CosineSimilarity} \ge \theta_{\text{planner}}$, default `0.88`) for matching `user_role` and system `prompt_hash`. This allows semantically equivalent or parameter-variant queries (such as `"6 lb package"` vs `"5 lb package"`) to hit Layer 1 cache and execute downstream retrieval directly, while write-side gates strictly reject erroneous or fallback planner decisions from being cached.
+
+### 2. Layer 2 — Response Cache & 5-Point Reuse Gate
+
+Layer 2 (`_response_cache` & `_response_entries`) reuses knowledge-level answers to bypass Synthesis LLM generation:
+
+* **Structured Response Contract**: The Response LLM outputs a structured `SynthesisResponse(cacheable_answer, specific_answer)` pydantic schema. Only `cacheable_answer` (reusable policy knowledge) enters Layer 2 cache. Query-specific calculations (`specific_answer`) are excluded to prevent stale calculation leakage.
+* **5-Point Reuse Verification Gate**: On candidate lookup, all 5 conditions must be met:
+  1. **Semantic Similarity**: Query embedding cosine similarity $\ge \theta_{\text{read}}$ (default `0.88`).
+  2. **Planner Compatibility**: Matching routing `path` and `intent`.
+  3. **RBAC Scoping**: Matching `user_role` (`customer` vs `employee`).
+  4. **Knowledge Base Version**: Matching `kb_version` (invalidates cache on KB update).
+  5. **Retrieval Evidence Consistency**: Rank-Biased Overlap (RBO) between current and candidate retrieved document ID lists $\ge \theta_{\text{rbo}}$ (default `0.70`).
+* **Dynamic Data Gate**: If stateful external tool calls (`tool_results`) were executed, Layer 2 response caching is strictly bypassed.
+
+---
+
 ## 📈 System Evaluation & Performance Benchmarks
 
 To establish a test-driven development loop, we run an offline evaluation runner `run_eval.py` against a golden dataset of **60 queries** spanning standard factual lookups, SKU matches, out-of-scope prompts, safety injections, and access-control edge cases.

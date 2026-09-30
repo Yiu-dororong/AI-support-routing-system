@@ -30,25 +30,29 @@ Rather than routing every query through an LLM, this system applies **progressiv
 ## 🏗️ System Architecture
 
 ```mermaid
-graph TD
-    Query[User Query] --> ScopeFilter["[0] Scope Filter (Sentence-Transformers)"]
-    
-    ScopeFilter -- "Out of Scope (< 0.15)" --> Refusal["Informative Domain Refusal"]
-    ScopeFilter -- "In Scope (>= 0.15)" --> FAQLayer["[1] FAQ Layer (Vector Lookup)"]
-    
-    FAQLayer -- "Direct Match (>= 0.80)" --> FAQBypass["Curated FAQ Response (LLM Bypassed)"]
-    FAQLayer -- "No FAQ Match (< 0.80)" --> ExecPlanner["[2] Execution Planner (Local Gemma-4 LLM)"]
-    
-    ExecPlanner -- "path: refuse" --> SafeRefusal["Safety/Policy Refusal"]
-    ExecPlanner -- "path: clarify" --> Clarify["Clarification Prompt"]
-    ExecPlanner -- "path: escalate" --> Handoff["AI-Assisted Handoff to Human"]
-    ExecPlanner -- "path: rag / rag_llm" --> Retrieve["[3] Hybrid Retrieval Layer (ChromaDB + BM25)"]
-    
-    Retrieve --> PathSplit{"Need Synthesis?"}
-    PathSplit -- "No (path: rag)" --> DirectDoc["Present Best Document (LLM Bypassed)"]
-    PathSplit -- "Yes (path: rag_llm)" --> LLMGen["[4] Response Generation (Local Gemma-4 LLM)"]
-    
-    LLMGen --> SynthesizedAnswer["Synthesized Answer (with thinking block)"]
+flowchart TD
+    Q["Incoming Query + user_role"] --> Scope{"[0] Scope Filter (Sentence-Transformers)"}
+
+    %% Main vertical pipeline
+    Scope -- "In Scope" --> FAQ{"[1] FAQ Layer"}
+    FAQ -- "FAQ Miss" --> L1{"[2] Layer 1: Planner Cache"}
+    L1 -- "Cache Miss" --> Planner["[3] Execution Planner LLM"]
+    Planner -- "path: rag / rag_llm" --> Retrieval["[4] Hybrid Retrieval (ChromaDB + BM25)"]
+    Retrieval -- "rag" --> DirectRAG["Present Best Document"]
+    Retrieval -- "rag_llm" --> L2{"[5] Layer 2: Response Cache"}
+    L2 -- "Gate Fail" --> Synthesis["[6] Response Synthesis LLM"]
+    Synthesis --> FinalOut["Synthesized Answer"]
+
+    %% Horizontal branch-outs to short-circuit outcomes (rightward)
+    Scope -- "Out of Scope" --> ExitScope["Domain Refusal"]
+    FAQ -- "FAQ Hit" --> ExitFAQ["Curated FAQ Response<br/><i>(LLM Bypassed)</i>"]
+
+    L1 -- "Exact Match OR<br/> Close Enough (cosine similarity)" --> L1Hit["Layer 1 Planner Cache Hit<br/><i>(Planner LLM Bypassed)</i>"]
+    L1Hit --> Retrieval
+
+    Planner -- "path: refuse / clarify / escalate" --> ExitPolicy["Policy Refusal / Clarification"]
+
+    L2 -- "Gate Pass<br/>(cosine similarity + Role + Intent + KB + RBO)" --> ExitL2["Layer 2 Response Cache Hit<br/><i>(Synthesis LLM Bypassed)</i>"]
 ```
 
 ---
@@ -171,13 +175,13 @@ While a hybrid RAG pipeline retrieves stable documentation (FAQs, guides) effect
 
 ## 🔍 Observability
 
-The Streamlit dashboard provides real-time slider controls for the **Scope**, **FAQ**, and **Retrieval** thresholds, interactive bar charts of similarity scores against intent clusters, and raw JSON output from the execution planner. Optionally, set `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` in `.env` to enable full execution trace logging across every routing phase.
+The Streamlit dashboard provides real-time slider controls for **Scope**, **FAQ**, **Retrieval**, **Layer 1 Planner Cache**, **Layer 2 Response Read**, and **Layer 2 RBO Evidence** thresholds, interactive bar charts of similarity scores against intent clusters, and raw JSON output from the execution planner. Optionally, set `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` in `.env` to enable full execution trace logging across every routing phase.
 
 ---
 
 ## 📈 Scaling Roadmap
 
-1. **Semantic Cache**: Add a Redis cache ahead of the Scope Filter to short-circuit repeated queries at zero compute cost.
+1. **Distributed Dual-Layer Cache**: Migrate the current in-memory `DualLayerCacheManager` to Redis Stack (RedisVL / RediSearch) or Qdrant for multi-pod distributed scaling, native HNSW vector range queries, and zero container-restart data loss.
 2. **Specialized Router Model**: Replace the 2B LLM planner with a fine-tuned BERT classifier for sub-10ms routing latency.
 3. **Stateful Conversations**: Append conversation history to prompts for multi-turn support, with KV-cache pruning or sliding-window context management.
 4. **Dedicated Tool Retrieval layer**: Implement a hierarchical selection approach (choose scope first, then pick specific tools) to dynamically bind only the relevant tool definitions to the planner context, minimizing context window bloat and accelerating inference.
@@ -188,8 +192,8 @@ The Streamlit dashboard provides real-time slider controls for the **Scope**, **
 
 > This project evolved from an experimental RAG document assistant into a modular orchestration system as requirements for deterministic routing, bounded inference, and human escalation emerged.
 
-*For implementation internals—chunking strategy, hybrid search design, RBAC mechanics, evaluation results, and local inference optimizations—see [TECHNICAL.md](TECHNICAL.md).*
+*For implementation internals—chunking strategy, hybrid search design, routing system, RBAC mechanics, evaluation results, and local inference optimizations—see [TECHNICAL.md](TECHNICAL.md).*
 
 ---
 
-> 🐳 **Enjoy the routing concept & need LLM APIs?** Consider trying [OrcaRouter](https://www.orcarouter.ai/ref/ref_f6ae95231757e44c6313) — an OpenAI-compatible gateway and intelligent model meta-router that lets you access over 150+ LLMs (OpenAI, Anthropic, Gemini, DeepSeek, Qwen) through a single endpoint with dynamic auto-routing. It is natively supported as an optional provider in this system. Signing up via my [referral link](https://www.orcarouter.ai/ref/ref_f6ae95231757e44c6313) helps support me and my work at zero extra cost to you.
+> 🐳 **Like the AI routing concept?** Since this project is built around smart routing, if you also want a model-level meta-router to manage and auto-route across 150+ LLM APIs (OpenAI, Anthropic, Gemini, DeepSeek, Qwen), consider trying [OrcaRouter](https://www.orcarouter.ai/ref/ref_f6ae95231757e44c6313) — an OpenAI-compatible intelligent gateway natively supported as an optional provider in this system. Signing up via my [referral link](https://www.orcarouter.ai/ref/ref_f6ae95231757e44c6313) helps support my work at zero extra cost to you!

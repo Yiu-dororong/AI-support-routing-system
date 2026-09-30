@@ -48,13 +48,14 @@ def test_calculate_rbo():
 
 
 def test_planner_cache_layer_1():
-    cache = DualLayerCacheManager(ttl_planner_seconds=10.0)
+    cache = DualLayerCacheManager(ttl_planner_seconds=10.0, theta_planner=0.88)
     prompt_hash = hash_prompt("System prompt v1")
 
-    query = "Can I return my order?"
+    query = "How much does express shipping cost for a 6 lb package?"
+    query_emb = [0.1, 0.2, 0.3, 0.4]
     decision = RoutingDecision(
-        path="rag_llm",
-        reason="Requires policy synthesis",
+        path="rag",
+        reason="Direct policy lookup",
     )
 
     # Store in Layer 1
@@ -63,26 +64,58 @@ def test_planner_cache_layer_1():
         user_role="customer",
         prompt_hash=prompt_hash,
         decision=decision,
-        intent="return_policy",
+        intent="shipping_and_delivery",
+        query_embedding=query_emb,
     )
     assert stored is True
 
-    # Exact query hit
-    hit = cache.get_planner(query, "customer", prompt_hash)
-    assert hit is not None
-    assert hit.path == "rag_llm"
+    # Exact query hit (Tier 1)
+    hit_dec, hit_note = cache.get_planner(query,
+                                          "customer",
+                                          prompt_hash)
+    assert hit_dec is not None
+    assert hit_dec.path == "rag"
+    assert "[Planner Cache Exact Hit]" in hit_note
 
-    # Normalized query hit (punctuation & upper case variant)
-    hit_variant = cache.get_planner("CAN I RETURN MY ORDER???", "customer", prompt_hash)
+    # Normalized query hit (Tier 1)
+    hit_variant, hit_note_var = cache.get_planner(
+        "HOW MUCH DOES EXPRESS SHIPPING COST FOR A 6 LB PACKAGE???",
+        "customer",
+        prompt_hash
+    )
     assert hit_variant is not None
-    assert hit_variant.path == "rag_llm"
+    assert "[Planner Cache Exact Hit]" in hit_note_var
+
+    # Semantic query hit
+    # (Tier 2 - different string e.g. 5lb, but high cosine similarity)
+    similar_emb = [0.1, 0.2, 0.3, 0.39]  # Cosine similarity ~ 0.999 >= 0.88
+    sem_dec, sem_note = cache.get_planner(
+        "How much does express shipping cost for a 5lb package?",
+        "customer",
+        prompt_hash,
+        query_embedding=similar_emb,
+    )
+    assert sem_dec is not None
+    assert sem_dec.path == "rag"
+    assert "[Planner Cache Semantic Hit" in sem_note
+
+    # Dissimilar embedding miss (Tier 2)
+    dissimilar_emb = [-0.1, -0.2, 0.3, 0.4]  # Low similarity < 0.88
+    miss_dec, miss_note = cache.get_planner(
+        "What is your warranty policy?",
+        "customer",
+        prompt_hash,
+        query_embedding=dissimilar_emb,
+    )
+    assert miss_dec is None
+    assert miss_note is None
 
     # Role mismatch
-    miss_role = cache.get_planner(query, "employee", prompt_hash)
+    miss_role, _ = cache.get_planner(query, "employee", prompt_hash)
     assert miss_role is None
 
     # Prompt hash mismatch (prompt updated)
-    miss_prompt = cache.get_planner(query, "customer", "different_hash")
+    miss_prompt, _ = cache.get_planner(query, "customer", "different_hash")
     assert miss_prompt is None
 
 
@@ -106,8 +139,8 @@ def test_planner_cache_reject_error_fallbacks():
     )
     assert stored is False
 
-    hit = cache.get_planner("Failed query", "customer", prompt_hash)
-    assert hit is None
+    hit_dec, _ = cache.get_planner("Failed query", "customer", prompt_hash)
+    assert hit_dec is None
 
 
 def test_planner_cache_ttl_expiration():
@@ -118,11 +151,13 @@ def test_planner_cache_ttl_expiration():
     cache.set_planner("Query", "customer", prompt_hash, decision, "intent")
 
     # Immediate hit
-    assert cache.get_planner("Query", "customer", prompt_hash) is not None
+    hit_dec, _ = cache.get_planner("Query", "customer", prompt_hash)
+    assert hit_dec is not None
 
     # Wait for TTL to expire
     time.sleep(0.15)
-    assert cache.get_planner("Query", "customer", prompt_hash) is None
+    expired_dec, _ = cache.get_planner("Query", "customer", prompt_hash)
+    assert expired_dec is None
 
 
 def test_response_cache_layer_2_and_5point_gate():

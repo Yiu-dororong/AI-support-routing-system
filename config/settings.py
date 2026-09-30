@@ -67,3 +67,20 @@ ORCAROUTER_PLANNER_MODEL = os.environ.get("ORCAROUTER_PLANNER_MODEL",
 ORCAROUTER_SYNTHESIS_MODEL = os.environ.get("ORCAROUTER_SYNTHESIS_MODEL",
                                             "openai/gpt-4o-mini")
 
+# Threshold Configuration Settings
+DEFAULT_SCOPE_THRESHOLD = float(os.environ.get("SCOPE_THRESHOLD", "0.15"))
+DEFAULT_FAQ_THRESHOLD = float(os.environ.get("FAQ_THRESHOLD", "0.80"))
+DEFAULT_RETRIEVAL_THRESHOLD = float(os.environ.get("RETRIEVAL_THRESHOLD", "0.30"))
+
+# Dual-Layer Cache Threshold Settings
+DEFAULT_PLANNER_CACHE_THRESHOLD = float(
+    os.environ.get("PLANNER_CACHE_THRESHOLD", "0.88")
+    )
+DEFAULT_RESPONSE_CACHE_READ_THRESHOLD = float(
+    os.environ.get("RESPONSE_CACHE_READ_THRESHOLD", "0.88")
+    )
+DEFAULT_RESPONSE_CACHE_RBO_THRESHOLD = float(
+    os.environ.get("RESPONSE_CACHE_RBO_THRESHOLD", "0.70")
+    )
+
+

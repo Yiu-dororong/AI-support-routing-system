@@ -8,6 +8,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pandas as pd
 import streamlit as st
 
+from config.settings import (
+    DEFAULT_FAQ_THRESHOLD,
+    DEFAULT_PLANNER_CACHE_THRESHOLD,
+    DEFAULT_RESPONSE_CACHE_RBO_THRESHOLD,
+    DEFAULT_RESPONSE_CACHE_READ_THRESHOLD,
+    DEFAULT_RETRIEVAL_THRESHOLD,
+    DEFAULT_SCOPE_THRESHOLD,
+)
 from llm import prompts
 from router_logic import SupportRouter
 
@@ -147,7 +155,8 @@ if st.sidebar.button(
     "Reset System Cache",
     help="Clear session state, flush dual-layer router cache, and reload.",
 ):
-    if "router" in st.session_state and hasattr(st.session_state.router, "cache_manager"):
+    if "router" in st.session_state and hasattr(st.session_state.router,
+                                                "cache_manager"):
         st.session_state.router.cache_manager.clear()
     st.cache_resource.clear()
     st.session_state.clear()
@@ -160,7 +169,7 @@ scope_threshold = st.sidebar.slider(
     "Scope Filter Threshold",
     min_value=0.1,
     max_value=0.9,
-    value=0.15,
+    value=DEFAULT_SCOPE_THRESHOLD,
     step=0.05,
     help=(
         "Minimum cosine similarity against intent centroids required to "
@@ -172,7 +181,7 @@ faq_threshold = st.sidebar.slider(
     "FAQ Match Threshold",
     min_value=0.5,
     max_value=0.95,
-    value=0.80,
+    value=DEFAULT_FAQ_THRESHOLD,
     step=0.05,
     help=(
         "Minimum cosine similarity required to trigger a direct FAQ bypass response."
@@ -181,13 +190,49 @@ faq_threshold = st.sidebar.slider(
 
 retrieval_threshold = st.sidebar.slider(
     "Retrieval Similarity Threshold",
-    min_value=0.1,
+    min_value=0.0,
     max_value=0.9,
-    value=0.30,
+    value=DEFAULT_RETRIEVAL_THRESHOLD,
     step=0.05,
     help=(
         "Minimum similarity score required for a retrieved document "
         "to be considered relevant for RAG / LLM synthesis."
+    ),
+)
+
+st.sidebar.markdown("**Dual-Layer Cache Thresholds**")
+planner_cache_threshold = st.sidebar.slider(
+    "Layer 1: Planner Cache Threshold",
+    min_value=0.50,
+    max_value=0.99,
+    value=DEFAULT_PLANNER_CACHE_THRESHOLD,
+    step=0.01,
+    help=(
+        "Minimum cosine similarity required for Layer 1 Planner Cache "
+        "semantic candidate hit."
+    ),
+)
+
+response_cache_read_threshold = st.sidebar.slider(
+    "Layer 2: Response Cosine Threshold",
+    min_value=0.50,
+    max_value=0.99,
+    value=DEFAULT_RESPONSE_CACHE_READ_THRESHOLD,
+    step=0.01,
+    help=(
+        "Minimum query semantic similarity required for Layer 2 Response Cache hit."
+    ),
+)
+
+response_cache_rbo_threshold = st.sidebar.slider(
+    "Layer 2: Response RBO Evidence Threshold",
+    min_value=0.30,
+    max_value=0.99,
+    value=DEFAULT_RESPONSE_CACHE_RBO_THRESHOLD,
+    step=0.05,
+    help=(
+        "Minimum Rank-Biased Overlap (RBO) evidence score between current "
+        "and candidate retrieval results to reuse cached response."
     ),
 )
 
@@ -446,11 +491,11 @@ def process_query(query_text: str, status=None):
     decision, planner_raw = router.run_execution_planner(
         query_text,
         max_intent,
+        query_emb=query_emb,
         callbacks=[langfuse_handler] if langfuse_handler else None,
         metadata=lf_metadata,
-        # The Streamlit app does not have a user authentication layer;
-        # all sessions are treated as customer-role for cache partitioning.
         user_role="customer",
+        planner_cache_threshold=planner_cache_threshold,
     )
     trace["planner"] = {
         "path": decision.path,
@@ -642,6 +687,8 @@ def process_query(query_text: str, status=None):
                 path=decision.path,
                 intent=max_intent,
                 query_emb=query_emb,
+                response_cache_read_threshold=response_cache_read_threshold,
+                response_cache_rbo_threshold=response_cache_rbo_threshold,
             )
             thinking, answer = split_thinking(raw_answer)
             if answer and not answer.strip().startswith("⚠️"):

@@ -81,6 +81,9 @@ def calculate_rbo(list_a: list[str], list_b: list[str], p: float = 0.8) -> float
 
 
 class PlannerCacheEntry(BaseModel):
+    query: str = ""
+    query_hash: str = ""
+    query_embedding: list[float] = Field(default_factory=list)
     decision: RoutingDecision
     intent: str
     user_role: str
@@ -110,16 +113,19 @@ class DualLayerCacheManager:
     """
     Production 2-Layer Cache Manager:
     - Layer 1: Planner / Classifier Cache (bypass execution planner LLM)
+               Supports 2-Tier Lookup: Tier 1 Exact Hash & Tier 2 Vector Semantic Match.
     - Layer 2: Response Cache (bypass synthesis LLM grounded by RBO evidence)
     """
 
     def __init__(
         self,
         ttl_planner_seconds: float = 86400.0,
+        theta_planner: float = 0.88,
         theta_read: float = 0.88,
         theta_rbo: float = 0.70,
     ):
         self.ttl_planner_seconds = ttl_planner_seconds
+        self.theta_planner = theta_planner
         self.theta_read = theta_read
         self.theta_rbo = theta_rbo
 
@@ -128,30 +134,82 @@ class DualLayerCacheManager:
 
         # Store keys: cache:response:{user_role}:v{kb_ver}:{query_hash}
         self._response_cache: dict[str, ResponseCacheEntry] = {}
-        # NOTE: _response_entries is an in-memory list used for Tier 2 vector scan.
-        # It grows without eviction. For long-running deployments, cap its size or
-        # replace with a proper ANN index (e.g. FAISS) backed by an LRU eviction policy.
         self._response_entries: list[ResponseCacheEntry] = []
 
     # --- Layer 1: Planner Cache ---
 
     def get_planner(
-        self, query: str, user_role: str, prompt_hash: str
-    ) -> RoutingDecision | None:
-        """Retrieves cached RoutingDecision if exact hit and not expired."""
+        self,
+        query: str,
+        user_role: str,
+        prompt_hash: str,
+        query_embedding: np.ndarray | list[float] | None = None,
+        theta_planner: float | None = None,
+    ) -> tuple[RoutingDecision | None, str | None]:
+        """
+        Retrieves cached RoutingDecision via 2-Tier Lookup:
+        - Tier 1: Exact Query Hash match (O(1))
+        - Tier 2: Cosine Similarity >= theta_planner against candidate embeddings
+        Returns (decision, hit_note) or (None, None).
+        """
         norm_q = normalize_query(query)
         q_hash = hash_query(norm_q)
         cache_key = f"cache:planner:{user_role}:p{prompt_hash}:{q_hash}"
 
+        # Tier 1 Exact Hash Check
         entry = self._planner_cache.get(cache_key)
-        if not entry:
-            return None
+        if entry:
+            if entry.is_expired():
+                del self._planner_cache[cache_key]
+            else:
+                return (
+                    entry.decision,
+                    f"""[Planner Cache Exact Hit]
+                    Reused decision for path '{entry.decision.path}'.""",
+                )
 
-        if entry.is_expired():
-            del self._planner_cache[cache_key]
-            return None
+        # Tier 2 Vector Semantic Match Check
+        if query_embedding is not None and len(self._planner_cache) > 0:
+            thresh = theta_planner if theta_planner is not None else self.theta_planner
+            query_emb_vec = np.array(query_embedding, dtype=np.float32)
+            norm_query_emb = np.linalg.norm(query_emb_vec)
+            if norm_query_emb > 0:
+                query_emb_vec = query_emb_vec / norm_query_emb
 
-        return entry.decision
+            best_decision: RoutingDecision | None = None
+            best_sim = -1.0
+
+            for key, cand in list(self._planner_cache.items()):
+                if cand.is_expired():
+                    del self._planner_cache[key]
+                    continue
+
+                if cand.user_role != user_role or cand.prompt_hash != prompt_hash:
+                    continue
+
+                if not cand.query_embedding:
+                    continue
+
+                cand_emb_vec = np.array(cand.query_embedding, dtype=np.float32)
+                norm_cand_emb = np.linalg.norm(cand_emb_vec)
+                if norm_cand_emb > 0:
+                    cand_emb_vec = cand_emb_vec / norm_cand_emb
+
+                sim = float(np.dot(query_emb_vec, cand_emb_vec))
+                if sim >= thresh and sim > best_sim:
+                    best_sim = sim
+                    best_decision = cand.decision
+
+            if best_decision is not None:
+                return (
+                    best_decision,
+                    (
+                        f"[Planner Cache Semantic Hit (Similarity: {best_sim:.2f})] "
+                        f"Reused decision for path '{best_decision.path}'."
+                    ),
+                )
+
+        return None, None
 
     def set_planner(
         self,
@@ -160,6 +218,7 @@ class DualLayerCacheManager:
         prompt_hash: str,
         decision: RoutingDecision,
         intent: str,
+        query_embedding: np.ndarray | list[float] | None = None,
     ) -> bool:
         """
         Stores RoutingDecision in Layer 1 cache.
@@ -177,7 +236,18 @@ class DualLayerCacheManager:
         q_hash = hash_query(norm_q)
         cache_key = f"cache:planner:{user_role}:p{prompt_hash}:{q_hash}"
 
+        emb_list = []
+        if query_embedding is not None:
+            emb_list = (
+                query_embedding.tolist()
+                if isinstance(query_embedding, np.ndarray)
+                else list(query_embedding)
+            )
+
         entry = PlannerCacheEntry(
+            query=query,
+            query_hash=q_hash,
+            query_embedding=emb_list,
             decision=decision,
             intent=intent,
             user_role=user_role,
@@ -198,6 +268,8 @@ class DualLayerCacheManager:
         current_path: str,
         current_intent: str,
         current_doc_ids: list[str],
+        theta_read: float | None = None,
+        theta_rbo: float | None = None,
     ) -> str | None:
         """
         Discovers candidate from Layer 2 Response Cache evaluating 5-Point Reuse Gate:
@@ -207,6 +279,9 @@ class DualLayerCacheManager:
         4. Knowledge version match (same kb_version)
         5. Retrieval evidence consistency (RBO on ranked docs >= theta_rbo)
         """
+        read_thresh = theta_read if theta_read is not None else self.theta_read
+        rbo_thresh = theta_rbo if theta_rbo is not None else self.theta_rbo
+
         norm_q = normalize_query(query)
         q_hash = hash_query(norm_q)
         exact_key = f"cache:response:{user_role}:v{kb_version}:{q_hash}"
@@ -220,49 +295,40 @@ class DualLayerCacheManager:
         best_score = -1.0
 
         # Tier 1 Exact Hash Check
-        # Track the exact entry's hash so Tier 2 does not re-evaluate it if it
-        # already failed the RBO gate here (avoids inconsistent accept after reject).
         tier1_rejected_hash: str | None = None
         exact_entry = self._response_cache.get(exact_key)
         if exact_entry:
-            # Verify Planner Compatibility & RBO
             if (
                 exact_entry.path == current_path
                 and exact_entry.intent == current_intent
             ):
                 rbo = calculate_rbo(exact_entry.retrieved_doc_ids, current_doc_ids)
-                if rbo >= self.theta_rbo:
+                if rbo >= rbo_thresh:
                     return exact_entry.cacheable_answer
-                # RBO failed — block this entry from Tier 2 re-evaluation
                 tier1_rejected_hash = exact_entry.query_hash
 
         # Tier 2 Vector Candidate Discovery
         for entry in self._response_entries:
-            # Skip entries that were already evaluated (and rejected) by Tier 1
             if tier1_rejected_hash and entry.query_hash == tier1_rejected_hash:
                 continue
 
-            # Gate 3 & Gate 4: RBAC and KB version match
             if entry.user_role != user_role or entry.kb_version != kb_version:
                 continue
 
-            # Gate 2: Planner compatibility
             if entry.path != current_path or entry.intent != current_intent:
                 continue
 
-            # Gate 1: Candidate Semantic Similarity
             cand_emb_vec = np.array(entry.query_embedding, dtype=np.float32)
             norm_cand_emb = np.linalg.norm(cand_emb_vec)
             if norm_cand_emb > 0:
                 cand_emb_vec = cand_emb_vec / norm_cand_emb
 
             sim = float(np.dot(query_emb_vec, cand_emb_vec))
-            if sim < self.theta_read:
+            if sim < read_thresh:
                 continue
 
-            # Gate 5: Retrieval Evidence Consistency (RBO)
             rbo = calculate_rbo(entry.retrieved_doc_ids, current_doc_ids)
-            if rbo < self.theta_rbo:
+            if rbo < rbo_thresh:
                 continue
 
             if sim > best_score:

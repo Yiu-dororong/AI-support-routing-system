@@ -658,25 +658,34 @@ class SupportRouter:
         self,
         query: str,
         intent: str,
+        query_emb: np.ndarray | None = None,
         callbacks=None,
         metadata: dict = None,
         user_role: str = "customer",
+        planner_cache_threshold: float | None = None,
         **kwargs,
     ) -> tuple[RoutingDecision, str | None]:
         """
-        [2] Execution Planner: Layer 1 Planner Cache lookup or fallback
-        to execution planner LLM.
+        [2] Execution Planner:
+        Layer 1 Planner Cache lookup (Tier 1 Exact or Tier 2 Vector)
+        or fallback to execution planner LLM.
         """
-        cached_decision = self.cache_manager.get_planner(
-            query=query, user_role=user_role, prompt_hash=self._planner_prompt_hash
+        if query_emb is None:
+            query_emb = self.get_query_embedding(query)
+
+        cached_decision, hit_note = self.cache_manager.get_planner(
+            query=query,
+            user_role=user_role,
+            prompt_hash=self._planner_prompt_hash,
+            query_embedding=query_emb,
+            theta_planner=planner_cache_threshold,
         )
         if cached_decision:
             return (
                 cached_decision,
-                (
-                    "[Planner Cache Hit] Reused decision for path "
-                    f"'{cached_decision.path}'."
-                ),
+                hit_note
+                or f"""[Planner Cache Hit] Reused decision for path
+                '{cached_decision.path}'.""",
             )
 
         decision, raw_output = self.router.plan_routing(
@@ -689,6 +698,7 @@ class SupportRouter:
             prompt_hash=self._planner_prompt_hash,
             decision=decision,
             intent=intent,
+            query_embedding=query_emb,
         )
         return decision, raw_output
 
@@ -728,6 +738,8 @@ class SupportRouter:
         path: str = "rag_llm",
         intent: str = "general",
         query_emb: np.ndarray | None = None,
+        response_cache_read_threshold: float | None = None,
+        response_cache_rbo_threshold: float | None = None,
         **kwargs,
     ) -> tuple[str, str]:
         """
@@ -750,6 +762,8 @@ class SupportRouter:
             current_path=path,
             current_intent=intent,
             current_doc_ids=doc_ids,
+            theta_read=response_cache_read_threshold,
+            theta_rbo=response_cache_rbo_threshold,
         )
         if cached_answer:
             return cached_answer, "[Response Cache Hit] Reused synthesized response."

@@ -69,7 +69,7 @@ flowchart TD
 | **RAG Direct** | + ChromaDB | 0 | < 50 ms |
 | **RAG LLM Synthesis** | + LLM | +1 (reasoning=ON) | ~8–9 s (Prefix cached), < 50 ms if cache hit |
 
-*Note: **Latency profiles reflect local CPU inference** with Gemma-4 E2B.GPU inference or cloud LLM inference services reduce these to sub-second speeds. Dual-layer cache checks run in microsecond to sub-millisecond range.*
+*Note: **Latency profiles reflect local CPU inference** with Gemma-4 E2B. GPU inference or cloud LLM inference services reduce these to sub-second speeds. Dual-layer cache checks run in microsecond to sub-millisecond range.*
 
 **The two-stage Planner → Synthesis pipeline only justifies its overhead when a substantial share of traffic is resolved by cheaper deterministic paths** (FAQ bypass, scope refusal, direct retrieval). In domains where most queries ultimately require LLM synthesis, the Planner adds latency with no proportional benefit—a simpler single-pass RAG is the better choice.
 
@@ -190,10 +190,6 @@ The Streamlit dashboard provides real-time slider controls for **Scope**, **FAQ*
 
 ## 📝 Development Notes
 
-> This project evolved from an experimental RAG document assistant into a modular orchestration system as requirements for deterministic routing, bounded inference, and human escalation emerged.
-
-*For implementation internals—chunking strategy, hybrid search design, routing system, RBAC mechanics, evaluation results, and local inference optimizations—see [TECHNICAL.md](TECHNICAL.md).*
-
----
+This project evolved from an experimental RAG document assistant into a modular system designed to route customer support queries. For implementation details, please check [TECHNICAL.md](TECHNICAL.md).
 
 > 🐳 **Like the AI routing concept?** Since this project is built around smart routing, if you also want a model-level meta-router to manage and auto-route across 150+ LLM APIs (OpenAI, Anthropic, Gemini, DeepSeek, Qwen), consider trying [OrcaRouter](https://www.orcarouter.ai/ref/ref_f6ae95231757e44c6313) — an OpenAI-compatible intelligent gateway natively supported as an optional provider in this system. Signing up via my [referral link](https://www.orcarouter.ai/ref/ref_f6ae95231757e44c6313) helps support my work at zero extra cost to you!

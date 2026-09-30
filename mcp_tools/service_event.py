@@ -76,6 +76,21 @@ class EventService:
         return serialized
 
     async def search_events(self, keyword: str) -> list[dict]:
+        if not self.mcp_client or not self.mcp_client.session:
+            logger.info(f"""Notion MCP client inactive.
+            Returning demo mock event for keyword='{keyword}'""")
+            return [
+                {
+                    "id": "demo_event_01",
+                    "title": "Fall Campaign Sale & Promotional Discount Terms",
+                    "properties": {
+                        "Status": "Active",
+                        "Start Date": "2026-10-01",
+                        "End Date": "2026-10-31",
+                        "Discount Code": "FALL2026",
+                    },
+                }
+            ]
         try:
             logger.info(f"Searching events in Notion with keyword='{keyword}'")
             # Call the official Notion search tool (API-post-search)
@@ -108,6 +123,20 @@ class EventService:
             return [{"error": f"Failed to search Notion events: {str(e)}"}]
 
     async def get_event_details(self, title: str) -> dict:
+        if not self.mcp_client or not self.mcp_client.session:
+            logger.info(f"""Notion MCP client inactive.
+            Returning demo mock event details for title='{title}'""")
+            return {
+                "title": title,
+                "properties": {
+                    "Status": "Active",
+                    "Start Date": "2026-10-01",
+                    "End Date": "2026-10-31",
+                    "Discount Code": "FALL2026",
+                },
+                "content": "Official Fall Campaign terms: "
+                "15% discount on all power station accessories.",
+            }
         try:
             logger.info(f"Fetching Notion event details for title='{title}'")
             # 1. Search for the page with the title to get its ID

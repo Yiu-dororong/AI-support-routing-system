@@ -15,6 +15,7 @@ from config.settings import (
     DEFAULT_RESPONSE_CACHE_READ_THRESHOLD,
     DEFAULT_RETRIEVAL_THRESHOLD,
     DEFAULT_SCOPE_THRESHOLD,
+    ENABLE_MCP,
 )
 from llm import prompts
 from router_logic import SupportRouter
@@ -151,6 +152,11 @@ if "last_query_trace" not in st.session_state:
 # Sidebar layout
 st.sidebar.title("🛠️ System Configuration")
 
+if ENABLE_MCP:
+    st.sidebar.caption("🔌 **MCP Extension:** `ENABLED` (DB & Notion Tools Active)")
+else:
+    st.sidebar.caption("🔌 **MCP Extension:** `DISABLED` (Pure RAG Mode)")
+
 if st.sidebar.button(
     "Reset System Cache",
     help="Clear session state, flush dual-layer router cache, and reload.",
@@ -239,13 +245,19 @@ response_cache_rbo_threshold = st.sidebar.slider(
 def on_preset_change():
     selected = st.session_state.get("preset_select")
     if selected and selected != "Select a preset query...":
-        st.session_state["user_chat_input"] = selected
+        clean_text = selected.replace(" [Cache Test]", "").strip()
+        st.session_state["user_chat_input"] = clean_text
 
 
 # Test preset queries list
 PRESETS = [
     "Select a preset query...",
+    "What discounts do I and my friend get through the referral program, "
+    "and is there a minimum purchase amount?",
+    "How much discount do my friend and I receive from the referral program, "
+    "and what's the minimum spend required? [Cache Test]",
     "How much does express shipping cost for a 5 lb package?",
+    "How much is express shipping for a 6 lb package? [Cache Test]",
     "What payment methods do you accept?",
     (
         "I want a refurbished device with at least 90% battery health "

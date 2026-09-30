@@ -49,8 +49,13 @@ class MCPServicesContainer:
             logger.error(f"PostgreSQL MCP client start failure: {e}")
 
         # Start Notion MCP connection only if NOTION_TOKEN / NOTION_API_KEY
-        # is configured
-        if "NOTION_TOKEN" in os.environ or "NOTION_API_KEY" in os.environ:
+        # is configured AND npx is available on PATH
+        import shutil
+
+        npx_cmd = "npx.cmd" if platform.system() == "Windows" else "npx"
+        has_npx = bool(shutil.which(npx_cmd) or shutil.which("npx"))
+
+        if ("NOTION_TOKEN" in os.environ or "NOTION_API_KEY" in os.environ) and has_npx:
             # Map NOTION_TOKEN to NOTION_API_KEY if needed by the official Notion server
             if "NOTION_TOKEN" in os.environ and "NOTION_API_KEY" not in os.environ:
                 os.environ["NOTION_API_KEY"] = os.environ["NOTION_TOKEN"]
@@ -60,6 +65,11 @@ class MCPServicesContainer:
                 await self.notion_client.start()
             except Exception as e:
                 logger.error(f"Notion MCP client start failure: {e}")
+        elif not has_npx:
+            logger.warning(
+                "Node.js 'npx' executable not found on system PATH. "
+                "Notion MCP server skipped (running in local mock/demo mode)."
+            )
         else:
             logger.warning(
                 "Notion API credentials (NOTION_TOKEN/NOTION_API_KEY) not "

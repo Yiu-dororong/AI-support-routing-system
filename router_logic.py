@@ -25,6 +25,7 @@ from config.models import (
 from config.settings import (
     CHROMA_PATH,
     DATA_DIR,
+    ENABLE_MCP,
     FAQS_FILE,
     GEMINI_API_KEY,
     GEMINI_PLANNER_MODEL,
@@ -523,9 +524,11 @@ class SupportRouter:
         self.intent_classifier = IntentClassifier(self.intent_centroids)
         self.faq_handler = FAQHandler(self.faq_embeddings)
 
+        from config.settings import ENABLE_MCP
         from core.tool_executor import registry
 
-        tool_descriptions = registry.get_tool_descriptions()
+        tool_descriptions = (registry.get_tool_descriptions() if ENABLE_MCP
+                             else "None (MCP extension disabled)")
         planner_system_prompt = prompts.EXECUTION_PLANNER_SYSTEM_PROMPT.format(
             available_tools=tool_descriptions
         )
@@ -589,44 +592,53 @@ class SupportRouter:
                 print(f"LLM warm-up warning: {e}", flush=True)
         else:
             print("Cloud LLM planner configured and ready!", flush=True)
-        # Initialize MCPServicesContainer
-        import sys
+        # Initialize MCPServicesContainer if ENABLE_MCP is True
+        if ENABLE_MCP:
+            import sys
 
-        project_root = os.path.dirname(os.path.abspath(__file__))
-        mcp_tools_dir = os.path.join(project_root, "mcp_tools")
-        if project_root not in sys.path:
-            sys.path.insert(0, project_root)
-        if mcp_tools_dir not in sys.path:
-            sys.path.insert(0, mcp_tools_dir)
+            project_root = os.path.dirname(os.path.abspath(__file__))
+            mcp_tools_dir = os.path.join(project_root, "mcp_tools")
+            if project_root not in sys.path:
+                sys.path.insert(0, project_root)
+            if mcp_tools_dir not in sys.path:
+                sys.path.insert(0, mcp_tools_dir)
 
-        from mcp_tools.manager import MCPServicesContainer
+            from mcp_tools.manager import MCPServicesContainer
 
-        self.mcp_container = MCPServicesContainer()
-
-        # MCP Services container ready
-        # If an event loop is currently running, pre-warm connections in that loop.
-        # Otherwise, MCPClientManager will connect lazily on demand
-        # when a tool is invoked.
-        try:
-            import asyncio
+            self.mcp_container = MCPServicesContainer()
 
             try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
+                import asyncio
 
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = None
+
+                self.mcp_startup_task = None
+                if loop and loop.is_running():
+                    self.mcp_startup_task = loop.create_task(self.mcp_container.start())
+                    print(
+                        "MCP persistent connections initialized in active loop!",
+                        flush=True
+                        )
+                else:
+                    print(
+                        "MCP services container ready (will connect lazily on demand).",
+                        flush=True
+                        )
+            except Exception as e:
+                print(
+                    f"Warning: Failed to initialize MCP services container: {e}",
+                    flush=True
+                    )
+        else:
+            self.mcp_container = None
             self.mcp_startup_task = None
-            if loop and loop.is_running():
-                self.mcp_startup_task = loop.create_task(self.mcp_container.start())
-                print("MCP persistent connections initialized in active loop!",
-                      flush=True)
-            else:
-                print("MCP services container ready (will connect lazily on demand).",
-                      flush=True)
-        except Exception as e:
             print(
-                f"Warning: Failed to initialize MCP services container: {e}",
-                flush=True,
+                "MCP Extension disabled (ENABLE_MCP=false). "
+                "Skipping MCP servers container.",
+                flush=True
             )
 
         print("Initialization complete!", flush=True)
@@ -691,6 +703,9 @@ class SupportRouter:
         decision, raw_output = self.router.plan_routing(
             query, intent, callbacks=callbacks, metadata=metadata
         )
+
+        if not ENABLE_MCP:
+            decision.tools = []
 
         self.cache_manager.set_planner(
             query=query,

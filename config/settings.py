@@ -81,6 +81,8 @@ DEFAULT_RESPONSE_CACHE_READ_THRESHOLD = float(
     )
 DEFAULT_RESPONSE_CACHE_RBO_THRESHOLD = float(
     os.environ.get("RESPONSE_CACHE_RBO_THRESHOLD", "0.70")
-    )
-
-
+)
+# MCP Configuration Settings
+ENABLE_MCP = os.environ.get(
+    "ENABLE_MCP", "true"
+    ).lower().strip() in ("true", "1", "yes")

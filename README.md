@@ -171,7 +171,7 @@ While a hybrid RAG pipeline retrieves stable documentation (FAQs, guides) effect
 * **Flexible Database Deployment**: Supports both local PostgreSQL (Docker/service) and Cloud PostgreSQL (Supabase). Toggle between modes effortlessly in `.env` using `USE_LOCAL_DB="true"` or `USE_LOCAL_DB="false"` with `SUPABASE_DB_URL`.
 * **Future Scaling**: Exposing all tool schemas directly to the planner works for small sets, but clutters context windows at scale. The future roadmap includes a **Tool Retrieval** layer to dynamically retrieve and bind only the most relevant tools before planning, keeping decoding fast and context efficient.
 
-*Note: If you do not configure the PostgreSQL database and Notion token, it will automatically run in Demo mode using mock data.*
+*Note: The MCP extension is disabled by default (`ENABLE_MCP="false"`). When enabled (`ENABLE_MCP="true"`), if the PostgreSQL database or Notion token is unconfigured, it automatically runs in Demo mode using mock data.*
 
 ---
 

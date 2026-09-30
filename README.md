@@ -61,17 +61,15 @@ flowchart TD
 
 ### Expected Latency
 
-| Outcome Path | Active Components | LLM Passes | Expected Runtime |
+| Outcome Path | Active Components | Additional LLM Passes | Expected Additional Runtime |
 | :--- | :--- | :---: | :--- |
-| **Out of Scope** | Scope Filter | 0 | < 5 ms *(0.04 ms filter)* |
-| **Direct FAQ Match** | Scope Filter + FAQ Layer | 0 | < 5 ms *(0.22 ms lookup)* |
-| **Layer 2 Response Cache Hit** | Dual-Layer Cache + Retrieval | **0** | **< 30 ms** *(0.64 ms gate)* |
-| **Layer 1 Planner Cache Hit** | Layer 1 Cache + LLM Synthesis | 1 (reasoning=ON) | ~8–9 s *(Planner bypassed)* |
-| **Planner Direct** (refuse/clarify/escalate) | + Planner | 1 (reasoning=OFF) | ~4–5 s *(Prefix cached)* |
-| **RAG Direct** | + ChromaDB | 1 (reasoning=OFF) | ~4–5 s *(Prefix cached)* |
-| **RAG LLM Synthesis** | + ChromaDB + LLM | 2 (reasoning=ON) | ~13–15 s *(Prefix cached)* |
+| **Out of Scope** | Scope Filter | 0 | < 20 ms |
+| **Direct FAQ Match** | + FAQ Layer | 0 | < 20 ms |
+| **Planner Direct** (refuse/clarify/escalate) | + Planner | +1 (reasoning=OFF) | ~4–5 s (Prefix cached), < 30 ms if cache hit |
+| **RAG Direct** | + ChromaDB | 0 | < 50 ms |
+| **RAG LLM Synthesis** | + LLM | +1 (reasoning=ON) | ~8–9 s (Prefix cached), < 50 ms if cache hit |
 
-*Note: Latency profiles reflect empirical benchmarks recorded on host CPU (Gemma-4 E2B local / Gemini Cloud API). Dual-layer cache checks run in microsecond to sub-millisecond range (Layer 1 Tier 1: 0.002 ms, Tier 2 vector scan: 0.64 ms, Layer 2 gate: 0.64 ms).*
+*Note: **Latency profiles reflect local CPU inference** with Gemma-4 E2B.GPU inference or cloud LLM inference services reduce these to sub-second speeds. Dual-layer cache checks run in microsecond to sub-millisecond range.*
 
 **The two-stage Planner → Synthesis pipeline only justifies its overhead when a substantial share of traffic is resolved by cheaper deterministic paths** (FAQ bypass, scope refusal, direct retrieval). In domains where most queries ultimately require LLM synthesis, the Planner adds latency with no proportional benefit—a simpler single-pass RAG is the better choice.
 

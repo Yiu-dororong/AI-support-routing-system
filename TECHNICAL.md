@@ -47,6 +47,9 @@ Query
 ### 1. Lexical Search Integration (BM25)
 To support exact lookups and prevent splitting product IDs, the system indexes documents with a custom sparse BM25 engine. Tokenization is performed using the regex pattern `r"[a-z0-9]+(?:[-_][a-z0-9]+)*"`, which preserves alphanumeric dashes and underscores (e.g., matching `VT-Titan_XL-99` intact) and extracts contiguous bigram phrases (shingles) to capture product name boundaries.
 
+**Limitation & SKU Variation Handling:** 
+Strict regex tokenization preserves formatted model codes (e.g., `VT-Titan_XL-99`), but may fail to match informal variants such as `iphone10`, `iphone 10`, or `iphone-10`. A production implementation could address this with a **SKU alias registry and query expansion**, maintaining canonical product SKUs and pre-derived aliases that normalize known variants to their standard identifiers before BM25 tokenization.
+
 ### 2. Reciprocal Rank Fusion (RRF) with Adaptive Weighting
 Ranked candidate lists from ChromaDB and BM25 are merged using a **Query-Adaptive Reciprocal Rank Fusion (RRF)** mechanism:
 * **Execution Model**: Dense and sparse retrievals run sequentially and synchronously on a single thread. Since the in-memory BM25 lexical search is extremely fast (~1–5ms), sequential execution minimizes software complexity without affecting latency.
@@ -178,6 +181,7 @@ Layer 2 (`_response_cache` & `_response_entries`) reuses knowledge-level answers
   3. **RBAC Scoping**: Matching `user_role` (`customer` vs `employee`).
   4. **Knowledge Base Version**: Matching `kb_version` (invalidates cache on KB update).
   5. **Retrieval Evidence Consistency**: Rank-Biased Overlap (RBO) between current and candidate retrieved document ID lists $\ge \theta_{\text{rbo}}$ (default `0.70`).
+     * *Note: RBO evidence comparison assumes each chunk represents a single atomic idea. Coarse chunkers (such as Docling's page-by-page strategy) group multiple ideas into a single chunk, which can dilute fine-grained evidence consistency checks.*
 * **Dynamic Data Gate**: If stateful external tool calls (`tool_results`) were executed, Layer 2 response caching is strictly bypassed.
 
 ---

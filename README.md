@@ -181,10 +181,11 @@ The Streamlit dashboard provides real-time slider controls for **Scope**, **FAQ*
 
 ## 📈 Scaling Roadmap
 
-1. **Distributed Dual-Layer Cache**: Migrate the current in-memory `DualLayerCacheManager` to Redis Stack (RedisVL / RediSearch) or Qdrant for multi-pod distributed scaling, native HNSW vector range queries, and zero container-restart data loss.
+1. **Modular System Architecture**: Decouple components into independent microservices—such as extracting the dual-layer cache to Redis/Qdrant and offloading tool retrieval to a dedicated service—to enable isolated scaling and prevent context bloat.
 2. **Specialized Router Model**: Replace the 2B LLM planner with a fine-tuned BERT classifier for sub-10ms routing latency.
 3. **Stateful Conversations**: Append conversation history to prompts for multi-turn support, with KV-cache pruning or sliding-window context management.
-4. **Dedicated Tool Retrieval layer**: Implement a hierarchical selection approach (choose scope first, then pick specific tools) to dynamically bind only the relevant tool definitions to the planner context, minimizing context window bloat and accelerating inference.
+4. **Error Handling & Circuit Breaking**: Implement automated exponential backoff retries, circuit breakers for external LLM/MCP services, and multi-tier graceful degradation.
+5. **Cache-hit response enrichment**: Use a lightweight model to generate a query-specific one-line summary when a cached reusable answer does not contain a `specific_answer`.
 
 ---
 

@@ -13,19 +13,18 @@ jobs:
       - name: Ping Supabase Database via PostgREST API
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
         run: |
-          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
-            echo "::error::SUPABASE_URL or SUPABASE_ANON_KEY secret is missing."
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "::error::SUPABASE_URL or SUPABASE_PUBLISHABLE_KEY secret is missing."
             exit 1
           fi
 
           echo "Pinging Supabase database to prevent inactivity pause..."
-          # Performs a lightweight query against the decks table to wake PostgreSQL
+          # Performs a lightweight query against the orders table to wake PostgreSQL
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "apikey: $SUPABASE_ANON_KEY" \
-            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
-            "$SUPABASE_URL/rest/v1/decks?select=id&limit=1")
+          -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+          "$SUPABASE_URL/rest/v1/orders?select=id&limit=1")
 
           echo "Response HTTP status: $HTTP_STATUS"
           if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 400 ]; then
